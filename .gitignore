@@ -13,3 +13,5 @@ storage/
 # Planilhas com dados reais de clientes/valores — não versionar.
 Dados.xlsx
 Pasta1.xlsx
+.vercel
+.env*

@@ -3,8 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon's pooled connection (DATABASE_URL) doesn't support the advisory locks
+  // `prisma migrate` needs — migrations run through the direct connection instead.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
