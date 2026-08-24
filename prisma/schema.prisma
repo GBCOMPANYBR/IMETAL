@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  name         String
+  /// "ADMIN" | "USER" — SQLite has no native enum type, validated at the application layer.
+  role         String   @default("USER")
+  canEdit      Boolean  @default(true)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  permissions    FieldPermission[]
+  pedidosCreated Pedido[]     @relation("PedidoCreatedBy")
+  pedidosUpdated Pedido[]     @relation("PedidoUpdatedBy")
+  attachments    Attachment[]
+}
+
+model FieldPermission {
+  id       Int     @id @default(autoincrement())
+  userId   Int
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fieldKey String
+  canView  Boolean @default(false)
+
+  @@unique([userId, fieldKey])
+}
+
+model Status {
+  id       Int      @id @default(autoincrement())
+  label    String   @unique
+  color    String   @default("#6b7280")
+  editable Boolean  @default(true)
+  order    Int      @default(0)
+  pedidos  Pedido[]
+}
+
+model Cliente {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  pedidos Pedido[]
+}
+
+model Faturamento {
+  id      Int      @id @default(autoincrement())
+  label   String   @unique
+  pedidos Pedido[]
+}
+
+model Tipo {
+  id      Int      @id @default(autoincrement())
+  label   String   @unique
+  pedidos Pedido[]
+}
+
+model Faturado {
+  id      Int      @id @default(autoincrement())
+  label   String   @unique
+  pedidos Pedido[]
+}
+
+model Pedido {
+  id Int @id @default(autoincrement())
+
+  statusId Int
+  status   Status @relation(fields: [statusId], references: [id])
+
+  clienteId Int
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  pedidoCompra String?
+  data         DateTime?
+
+  qtd           Float   @default(0)
+  codigo        String?
+  descricao     String?
+  ncm           String?
+  valorUnitario Float   @default(0)
+  valorTotal    Float   @default(0)
+  pagamento     String?
+
+  faturamentoId Int
+  faturamento   Faturamento @relation(fields: [faturamentoId], references: [id])
+
+  tipoId Int
+  tipo   Tipo @relation(fields: [tipoId], references: [id])
+
+  observacao String?
+
+  faturadoId      Int
+  faturado        Faturado  @relation(fields: [faturadoId], references: [id])
+  dataFaturamento DateTime?
+
+  nf  String?
+  pdv String?
+
+  createdById Int?
+  createdBy   User? @relation("PedidoCreatedBy", fields: [createdById], references: [id])
+  updatedById Int?
+  updatedBy   User? @relation("PedidoUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments Attachment[]
+}
+
+model Attachment {
+  id           Int      @id @default(autoincrement())
+  pedidoId     Int
+  pedido       Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  filename     String
+  storedPath   String
+  mimeType     String
+  size         Int
+  uploadedById Int?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+}

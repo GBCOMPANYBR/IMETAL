@@ -1,0 +1,112 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { canEditPedidoWithStatus, requireAdmin, requireAuth } from "@/lib/permissions";
+import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
+import { findDisallowedKeys, pedidoUpdateSchema } from "@/lib/pedido-payload";
+import { deleteAttachmentFile } from "@/lib/storage";
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if ("error" in auth) return auth.error;
+  const { user } = auth;
+
+  const { id } = await params;
+  const pedido = await prisma.pedido.findUnique({ where: { id: Number(id) }, include: PEDIDO_INCLUDE });
+  if (!pedido) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
+  return NextResponse.json(serializePedido(pedido, user));
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if ("error" in auth) return auth.error;
+  const { user } = auth;
+
+  const { id } = await params;
+  const pedidoId = Number(id);
+
+  const existing = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { status: true } });
+  if (!existing) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
+
+  if (!canEditPedidoWithStatus(user, existing.status.editable)) {
+    return NextResponse.json(
+      { error: "Este pedido está com um status que não permite edição." },
+      { status: 423 }
+    );
+  }
+
+  const raw = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!raw) {
+    return NextResponse.json({ error: "Corpo da requisição inválido." }, { status: 400 });
+  }
+
+  const disallowed = findDisallowedKeys(Object.keys(raw), user.visibleFields);
+  if (disallowed.length > 0) {
+    return NextResponse.json(
+      { error: `Você não tem permissão para alterar: ${disallowed.join(", ")}.` },
+      { status: 403 }
+    );
+  }
+
+  const parsed = pedidoUpdateSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });
+  }
+  const data = parsed.data;
+
+  const nextQtd = data.qtd ?? existing.qtd;
+  const nextValorUnitario = data.valorUnitario ?? existing.valorUnitario;
+
+  const updated = await prisma.pedido.update({
+    where: { id: pedidoId },
+    data: {
+      ...(data.statusId !== undefined ? { statusId: data.statusId } : {}),
+      ...(data.clienteId !== undefined ? { clienteId: data.clienteId } : {}),
+      ...(data.faturamentoId !== undefined ? { faturamentoId: data.faturamentoId } : {}),
+      ...(data.tipoId !== undefined ? { tipoId: data.tipoId } : {}),
+      ...(data.faturadoId !== undefined ? { faturadoId: data.faturadoId } : {}),
+      ...(data.pedidoCompra !== undefined ? { pedidoCompra: data.pedidoCompra } : {}),
+      ...(data.data !== undefined ? { data: data.data } : {}),
+      ...(data.qtd !== undefined ? { qtd: data.qtd } : {}),
+      ...(data.codigo !== undefined ? { codigo: data.codigo } : {}),
+      ...(data.descricao !== undefined ? { descricao: data.descricao } : {}),
+      ...(data.ncm !== undefined ? { ncm: data.ncm } : {}),
+      ...(data.valorUnitario !== undefined ? { valorUnitario: data.valorUnitario } : {}),
+      ...(data.pagamento !== undefined ? { pagamento: data.pagamento } : {}),
+      ...(data.observacao !== undefined ? { observacao: data.observacao } : {}),
+      ...(data.dataFaturamento !== undefined ? { dataFaturamento: data.dataFaturamento } : {}),
+      ...(data.nf !== undefined ? { nf: data.nf } : {}),
+      ...(data.pdv !== undefined ? { pdv: data.pdv } : {}),
+      valorTotal: nextQtd * nextValorUnitario,
+      updatedById: user.id,
+    },
+    include: PEDIDO_INCLUDE,
+  });
+
+  return NextResponse.json(serializePedido(updated, user));
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if ("error" in auth) return auth.error;
+
+  const { id } = await params;
+  const pedidoId = Number(id);
+
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: pedidoId },
+    include: { attachments: true },
+  });
+  if (!pedido) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
+
+  await prisma.pedido.delete({ where: { id: pedidoId } });
+
+  await Promise.all(pedido.attachments.map((a) => deleteAttachmentFile(a.storedPath)));
+
+  return NextResponse.json({ ok: true });
+}
