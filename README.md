@@ -2,23 +2,42 @@
 
 Sistema web para gestão de pedidos e clientes, com banco de dados, permissões por usuário, status configuráveis com trava de edição, filtros por coluna, paginação inteligente, gráficos e anexos.
 
+**Em produção:** https://imetal.vercel.app (projeto `imetal`, time Vercel "Salvatore Seguros' projects").
+
 ## Stack
 
 - **Next.js 16 (App Router) + TypeScript** — front-end e API no mesmo app.
-- **Prisma + SQLite** (`prisma/dev.db`) — banco em arquivo, ideal para um servidor na rede local.
+- **Prisma + Postgres** (Neon, via integração nativa da Vercel) — `DATABASE_URL` pooled para as queries da aplicação, `DATABASE_URL_UNPOOLED` para migrações.
+- **Anexos em Vercel Blob** em produção (`BLOB_READ_WRITE_TOKEN`); sem esse token, `lib/storage.ts` cai automaticamente para disco local em `storage/attachments/` — assim `npm run dev` funciona sem depender da nuvem. Em ambos os modos, o arquivo só é entregue através de uma rota autenticada que confere permissão a cada acesso — o cliente nunca recebe a URL pública do Blob diretamente.
 - **Autenticação própria** (sessão em cookie httpOnly assinada com JWT) — sem serviços externos.
 - **Tailwind CSS** + **Recharts** para gráficos.
-- Anexos ficam em `storage/attachments/`, fora da pasta pública, e só são liberados por uma rota autenticada que confere permissão a cada acesso.
 
-## Primeiro uso
+## Deploy (Vercel)
+
+O projeto está linkado localmente via `vercel link` (arquivo `.vercel/` — não versionado). Para subir uma nova versão manualmente:
+
+```bash
+git push                     # opcional, mantém o histórico no GitHub em dia
+npx vercel deploy --prod     # builda remotamente e publica em produção
+```
+
+Hoje o deploy é manual porque o **GitHub App da Vercel não está instalado** no repositório `GBCOMPANYBR/IMETAL` — sem isso não dá pra conectar o projeto ao Git pra deploy automático a cada push. Pra ativar: `vercel.com/salvatore-seguros-projects/imetal/settings/git` → conectar repositório (isso instala o app no GitHub, pede autorização da organização).
+
+Se o schema do Prisma mudar, rode a migração contra o banco de produção antes do deploy:
+```bash
+npx prisma migrate deploy
+```
+
+## Primeiro uso (ambiente local)
 
 ```bash
 npm install
-npx prisma migrate deploy   # cria o banco (prisma/dev.db)
+npx prisma migrate deploy   # aplica as migrações no Postgres apontado por DATABASE_URL
 npm run db:seed             # importa Dados.xlsx e cria os usuários iniciais
-npm run build
-npm start                   # sobe em http://localhost:3000
+npm run dev                 # http://localhost:3000
 ```
+
+Copie `.env.example` para `.env` e preencha `DATABASE_URL`/`DATABASE_URL_UNPOOLED` (pegue em Vercel → projeto → Storage → banco Postgres → aba ".env.local") e, se quiser testar upload de anexos como em produção, `BLOB_READ_WRITE_TOKEN` também.
 
 O seed procura primeiro `Dados.xlsx` (planilha real) na raiz do projeto; se não encontrar, usa `Pasta1.xlsx` (protótipo) como alternativa. Nenhuma das duas é versionada no git (dados reais de clientes/valores) — copie o arquivo manualmente antes de rodar `db:seed` num ambiente novo.
 
@@ -44,17 +63,9 @@ Durante o desenvolvimento, use `npm run dev` em vez de `build`/`start`.
 - A coluna "Anexos" da planilha era só uma contagem em texto — não havia arquivos reais, então os pedidos importados nascem sem anexos; anexe os arquivos de verdade pela tela.
 - Alguns nomes de cliente parecem duplicados por grafia (ex.: "GIG WATER" vs "GIGWATER", "PRIMO TEDESCO" vs "PRIMOTEDESCO") — mantive como estavam na planilha por não ter certeza se são a mesma empresa. A tela `/admin/clientes` hoje só renomeia um cadastro, não faz merge de dois cadastros num só; se confirmarem que são a mesma empresa, isso precisa de um ajuste direto no banco (posso fazer) para mover os pedidos de um cadastro pro outro antes de excluir o duplicado.
 
-## Rodando como servidor na rede local
+## Alternativa: servidor próprio (sem Vercel)
 
-1. Rode `npm run build && npm start` num computador/servidor da empresa que fique ligado.
-2. Outros computadores acessam pelo navegador em `http://<IP-do-servidor>:3000`.
-3. Para manter o processo no ar (reiniciar sozinho se cair), use um gerenciador como `pm2`:
-   ```bash
-   npm i -g pm2
-   pm2 start npm --name imetal -- start
-   pm2 save
-   ```
-4. Faça backup periódico de `prisma/dev.db` e da pasta `storage/` — é onde ficam os dados e os anexos.
+O app não depende da Vercel — se um dia quiserem sair dela, `npm run build && npm start` roda em qualquer servidor Node. `DATABASE_URL` pode continuar apontando pro mesmo Postgres (Neon aceita conexão de fora da Vercel) ou pra outro banco Postgres; sem `BLOB_READ_WRITE_TOKEN` configurado, os anexos passam a ser salvos em disco local (`storage/attachments/`) automaticamente. Nesse cenário, use algo como `pm2` pra manter o processo no ar e faça backup da pasta `storage/`.
 
 ## Estrutura das permissões
 
