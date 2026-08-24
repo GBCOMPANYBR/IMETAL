@@ -43,8 +43,8 @@ export const config = {
     /*
      * Match everything except:
      * - _next/static, _next/image (build assets)
-     * - favicon.ico, logo.png and other public files
+     * - favicon.ico, icon.png, apple-icon.png, logo.png and other public files
      */
-    "/((?!_next/static|_next/image|favicon.ico|logo.png).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|logo.png).*)",
   ],
 };
