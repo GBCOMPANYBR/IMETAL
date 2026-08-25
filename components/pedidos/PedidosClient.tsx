@@ -11,10 +11,10 @@ import AttachmentsModal from "@/components/pedidos/AttachmentsModal";
 
 const ID_FIELD: FieldDef = { key: "id", label: "#", type: "number", formEditable: false };
 
-/** Light tint of the status color used to paint the whole row, so status is readable at a glance. */
+/** Tint of the status color used to paint the whole row — strong enough to spot at a glance, light enough that the dark row text stays readable. */
 function rowTint(color: string | undefined): React.CSSProperties {
   if (!color) return {};
-  return { backgroundColor: `${color}26` };
+  return { backgroundColor: `${color}4d` };
 }
 
 interface PedidoRow extends PedidoRecord {

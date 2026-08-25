@@ -12,15 +12,15 @@ const prisma = new PrismaClient();
 const SOURCE_FILES = ["Dados.xlsx", "Pasta1.xlsx"];
 
 const STATUS_CONFIG: Record<string, { color: string; editable: boolean }> = {
-  Finalizado: { color: "#16a34a", editable: false },
-  Cancelado: { color: "#dc2626", editable: false },
-  "Em andamento": { color: "#2563eb", editable: true },
-  Instalação: { color: "#0d9488", editable: true },
-  "Sem ação": { color: "#6b7280", editable: true },
+  Finalizado: { color: "#22c55e", editable: false },
+  Cancelado: { color: "#ef4444", editable: false },
+  "Em andamento": { color: "#3b82f6", editable: true },
+  Instalação: { color: "#a855f7", editable: true },
+  "Sem ação": { color: "#64748b", editable: true },
   Externo: { color: "#f59e0b", editable: true },
-  Serviço: { color: "#7c3aed", editable: true },
+  Serviço: { color: "#ec4899", editable: true },
 };
-const DEFAULT_STATUS_COLOR = "#6b7280";
+const DEFAULT_STATUS_COLOR = "#64748b";
 
 // Values found in the real spreadsheet's TIPO column that are clearly data-entry mistakes
 // (e.g. a city name typed into the wrong column), not a legitimate new Tipo. Rows hitting
