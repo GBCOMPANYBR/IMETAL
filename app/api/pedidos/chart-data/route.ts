@@ -12,10 +12,16 @@ export async function GET(req: Request) {
   const { where } = parsePedidoQuery(searchParams, user.visibleFields);
 
   const canValorTotal = user.visibleFields.has("valorTotal");
-  const result: { porCliente: unknown[] | null; porData: unknown[] | null } = {
+  const result: { geral: number | null; porCliente: unknown[] | null; porData: unknown[] | null } = {
+    geral: null,
     porCliente: null,
     porData: null,
   };
+
+  if (canValorTotal) {
+    const totals = await prisma.pedido.aggregate({ where, _sum: { valorTotal: true } });
+    result.geral = totals._sum.valorTotal ?? 0;
+  }
 
   if (canValorTotal && user.visibleFields.has("cliente")) {
     const grouped = await prisma.pedido.groupBy({

@@ -36,7 +36,12 @@ export default function ChartsClient({ visibleFields }: Props) {
   const [dataFrom, setDataFrom] = useState("");
   const [dataTo, setDataTo] = useState("");
   const [faturadoFilter, setFaturadoFilter] = useState<FaturadoFilter>("TODOS");
-  const [chartData, setChartData] = useState<{ porCliente: { cliente: string; total: number }[] | null; porData: { data: string; total: number }[] | null }>({
+  const [chartData, setChartData] = useState<{
+    geral: number | null;
+    porCliente: { cliente: string; total: number }[] | null;
+    porData: { data: string; total: number }[] | null;
+  }>({
+    geral: null,
     porCliente: null,
     porData: null,
   });
@@ -54,7 +59,7 @@ export default function ChartsClient({ visibleFields }: Props) {
     setLoading(true);
     const params = buildPedidosQueryParams({ filters, quickSearch: "" });
     fetch(`/api/pedidos/chart-data?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : { porCliente: null, porData: null }))
+      .then((r) => (r.ok ? r.json() : { geral: null, porCliente: null, porData: null }))
       .then(setChartData)
       .finally(() => setLoading(false));
   }, [clienteIds, dataFrom, dataTo, faturadoFilter, options.faturado]);
@@ -135,7 +140,17 @@ export default function ChartsClient({ visibleFields }: Props) {
       {loading ? (
         <p className="p-8 text-center text-sm text-slate-400">Carregando gráficos...</p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <>
+          {chartData.geral !== null && (
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <h2 className="text-sm font-semibold text-slate-500">
+                Faturado Geral{clienteIds.length > 0 ? "" : " — todas as empresas"}
+                {faturadoFilter !== "TODOS" && (faturadoFilter === "SIM" ? " (faturados)" : " (não faturados)")}
+              </h2>
+              <p className="mt-1 text-3xl font-bold text-slate-800">{formatCurrency(chartData.geral)}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {canCliente && chartData.porCliente && (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-semibold text-slate-600">Valor Total por Cliente</h2>
@@ -173,7 +188,8 @@ export default function ChartsClient({ visibleFields }: Props) {
               )}
             </div>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
