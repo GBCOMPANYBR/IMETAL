@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PEDIDO_FIELDS, type FieldDef } from "@/lib/fields";
-import { formatCurrency, formatDate, mixWithWhite } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { usePedidoOptions } from "@/lib/useOptions";
 import { anyFilterActive, buildPedidosQueryParams, type FiltersState } from "@/lib/pedido-query-client";
 import ColumnFilter from "@/components/pedidos/ColumnFilter";
@@ -12,10 +12,45 @@ import BulkEditModal from "@/components/pedidos/BulkEditModal";
 
 const ID_FIELD: FieldDef = { key: "id", label: "#", type: "number", formEditable: false };
 
-/** Solid (opaque) pastel of the status color used to paint the whole row — strong enough to spot at a glance, light enough that the dark row text stays readable, no transparency/"watermark" look. */
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  id: 70,
+  status: 130,
+  cliente: 160,
+  pedidoCompra: 150,
+  data: 110,
+  qtd: 80,
+  codigo: 130,
+  descricao: 320,
+  ncm: 100,
+  valorUnitario: 120,
+  valorTotal: 120,
+  pagamento: 100,
+  faturamento: 130,
+  tipo: 100,
+  observacao: 220,
+  faturado: 100,
+  dataFaturamento: 140,
+  nf: 90,
+  pdv: 90,
+  anexos: 90,
+  editadoPor: 150,
+};
+const MIN_COLUMN_WIDTH = 50;
+const COLUMN_WIDTHS_STORAGE_KEY = "imetal:pedidos:columnWidths";
+
+function loadStoredColumnWidths(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Paints the row with the exact status color as configured in /admin/status — no blending, per the client's explicit call. */
 function rowTint(color: string | undefined): React.CSSProperties {
   if (!color) return {};
-  return { backgroundColor: mixWithWhite(color, 0.32) };
+  return { backgroundColor: color };
 }
 
 interface PedidoRow extends PedidoRecord {
@@ -53,8 +88,42 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setColumnWidths(loadStoredColumnWidths());
+  }, []);
 
   const canBulkEdit = isAdmin || canEdit;
+
+  function columnWidth(fieldKey: string): number {
+    return columnWidths[fieldKey] ?? DEFAULT_COLUMN_WIDTHS[fieldKey] ?? 150;
+  }
+
+  function startColumnResize(fieldKey: string, e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = columnWidth(fieldKey);
+
+    function onMouseMove(ev: MouseEvent) {
+      const nextWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + (ev.clientX - startX));
+      setColumnWidths((prev) => ({ ...prev, [fieldKey]: nextWidth }));
+    }
+    function onMouseUp() {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setColumnWidths((prev) => {
+        try {
+          localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(prev));
+        } catch {
+          // ignore (private browsing / storage disabled)
+        }
+        return prev;
+      });
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setQuickSearch(quickSearchInput), 350);
@@ -279,7 +348,14 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
           style={hasFilters ? { height: "70vh", minHeight: "260px", maxHeight: "90vh" } : undefined}
           title={hasFilters ? "Arraste o canto inferior direito para ajustar a altura" : undefined}
         >
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+          <table className="table-fixed border-collapse text-sm">
+            <colgroup>
+              {canBulkEdit && <col style={{ width: 36 }} />}
+              {[ID_FIELD, ...columns].map((f) => (
+                <col key={f.key} style={{ width: columnWidth(f.key) }} />
+              ))}
+              <col style={{ width: 90 }} />
+            </colgroup>
             <thead className="sticky top-0 z-10 bg-slate-50 print:static">
               <tr>
                 {canBulkEdit && (
@@ -292,11 +368,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                   </th>
                 )}
                 {[ID_FIELD, ...columns].map((f) => (
-                  <th key={f.key} className="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500">
-                    <span className="inline-flex items-center">
+                  <th key={f.key} className="relative overflow-hidden border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500">
+                    <span className="inline-flex max-w-full items-center overflow-hidden">
                       <button
                         onClick={() => f.sortable !== false && toggleSort(f.key)}
-                        className="hover:text-slate-700 disabled:cursor-default disabled:opacity-50"
+                        className="truncate hover:text-slate-700 disabled:cursor-default disabled:opacity-50"
                         disabled={f.sortable === false}
                       >
                         {f.label} {sort === f.key ? (dir === "asc" ? "▲" : "▼") : ""}
@@ -322,6 +398,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                         />
                       )}
                     </span>
+                    <div
+                      onMouseDown={(e) => startColumnResize(f.key, e)}
+                      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none hover:bg-brand/40 print:hidden"
+                      title="Arraste para redimensionar a coluna"
+                    />
                   </th>
                 ))}
                 <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 print:hidden">Ações</th>
@@ -354,16 +435,9 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                         <input type="checkbox" checked={selectedIds.has(pedido.id)} onChange={() => toggleSelect(pedido.id)} />
                       </td>
                     )}
-                    <td className="px-3 py-2 text-slate-400">{pedido.id}</td>
+                    <td className="overflow-hidden px-3 py-2 text-slate-400">{pedido.id}</td>
                     {columns.map((f) => (
-                      <td
-                        key={f.key}
-                        className={
-                          f.key === "descricao"
-                            ? "max-w-[360px] whitespace-normal break-words px-3 py-2 text-slate-700"
-                            : "max-w-[220px] truncate px-3 py-2 text-slate-700"
-                        }
-                      >
+                      <td key={f.key} className="overflow-hidden whitespace-normal break-words px-3 py-2 align-top text-slate-700">
                         {cellValue(pedido, f.key)}
                       </td>
                     ))}

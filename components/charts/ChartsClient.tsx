@@ -37,7 +37,6 @@ export default function ChartsClient({ visibleFields }: Props) {
   const [dataFrom, setDataFrom] = useState("");
   const [dataTo, setDataTo] = useState("");
   const [faturadoFilter, setFaturadoFilter] = useState<FaturadoFilter>("TODOS");
-  const [dateField, setDateField] = useState<"data" | "dataFaturamento">(canData ? "data" : "dataFaturamento");
   const [chartData, setChartData] = useState<{
     geral: number | null;
     porCliente: { cliente: string; total: number }[] | null;
@@ -49,10 +48,18 @@ export default function ChartsClient({ visibleFields }: Props) {
   });
   const [loading, setLoading] = useState(true);
 
+  // Pedidos faturados são analisados pela data em que foram faturados, não pela data do
+  // pedido — as duas coisas podem cair em períodos bem diferentes. Não faturados (ou Todos)
+  // usam a data do pedido, já que ainda não têm data de faturamento.
+  const effectiveDateField: "data" | "dataFaturamento" =
+    faturadoFilter === "SIM" && canDataFaturamento ? "dataFaturamento" : "data";
+  const canEffectiveDateField = effectiveDateField === "dataFaturamento" ? canDataFaturamento : canData;
+  const dateFieldLabel = effectiveDateField === "dataFaturamento" ? "Data de Faturamento" : "Data do Pedido";
+
   useEffect(() => {
     const filters: FiltersState = {};
     if (clienteIds.length > 0) filters.cliente = { type: "fk", ids: clienteIds };
-    if (dataFrom || dataTo) filters.data = { type: "date", from: dataFrom || undefined, to: dataTo || undefined };
+    if (dataFrom || dataTo) filters[effectiveDateField] = { type: "date", from: dataFrom || undefined, to: dataTo || undefined };
     if (faturadoFilter !== "TODOS") {
       const target = options.faturado.find((f) => f.label === (faturadoFilter === "SIM" ? "SIM" : "NÃO"));
       if (target) filters.faturado = { type: "fk", ids: [target.id] };
@@ -60,12 +67,12 @@ export default function ChartsClient({ visibleFields }: Props) {
 
     setLoading(true);
     const params = buildPedidosQueryParams({ filters, quickSearch: "" });
-    params.set("dateField", dateField);
+    params.set("dateField", effectiveDateField);
     fetch(`/api/pedidos/chart-data?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : { geral: null, porCliente: null, porData: null }))
       .then(setChartData)
       .finally(() => setLoading(false));
-  }, [clienteIds, dataFrom, dataTo, faturadoFilter, dateField, options.faturado]);
+  }, [clienteIds, dataFrom, dataTo, faturadoFilter, effectiveDateField, options.faturado]);
 
   if (!canValorTotal) {
     return (
@@ -96,14 +103,14 @@ export default function ChartsClient({ visibleFields }: Props) {
             </div>
           </div>
         )}
-        {canData && (
+        {canEffectiveDateField && (
           <div className="flex gap-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Data de</label>
+              <label className="mb-1 block text-xs font-medium text-slate-500">{dateFieldLabel} de</label>
               <input type="date" value={dataFrom} onChange={(e) => setDataFrom(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">Data até</label>
+              <label className="mb-1 block text-xs font-medium text-slate-500">{dateFieldLabel} até</label>
               <input type="date" value={dataTo} onChange={(e) => setDataTo(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
             </div>
           </div>
@@ -173,33 +180,9 @@ export default function ChartsClient({ visibleFields }: Props) {
             </div>
           )}
 
-          {(canData || canDataFaturamento) && chartData.porData && (
+          {canEffectiveDateField && chartData.porData && (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-slate-600">
-                  Valor Total por {dateField === "data" ? "Data do Pedido" : "Data de Faturamento"}
-                </h2>
-                {canData && canDataFaturamento && (
-                  <div className="flex gap-1 rounded-lg border border-slate-300 p-0.5">
-                    <button
-                      onClick={() => setDateField("data")}
-                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                        dateField === "data" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"
-                      }`}
-                    >
-                      Data do Pedido
-                    </button>
-                    <button
-                      onClick={() => setDateField("dataFaturamento")}
-                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                        dateField === "dataFaturamento" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"
-                      }`}
-                    >
-                      Data de Faturamento
-                    </button>
-                  </div>
-                )}
-              </div>
+              <h2 className="mb-3 text-sm font-semibold text-slate-600">Valor Total por {dateFieldLabel}</h2>
               {chartData.porData.length === 0 ? (
                 <p className="py-10 text-center text-sm text-slate-400">Sem dados para os filtros selecionados.</p>
               ) : (
