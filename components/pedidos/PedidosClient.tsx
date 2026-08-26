@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PEDIDO_FIELDS, type FieldDef } from "@/lib/fields";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { usePedidoOptions } from "@/lib/useOptions";
@@ -89,6 +89,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const colRefs = useRef<Record<string, HTMLTableColElement | null>>({});
 
   useEffect(() => {
     setColumnWidths(loadStoredColumnWidths());
@@ -100,25 +101,40 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
     return columnWidths[fieldKey] ?? DEFAULT_COLUMN_WIDTHS[fieldKey] ?? 150;
   }
 
+  // Resizes by writing directly to the <col> element's style during the drag, instead of going
+  // through React state on every mousemove — with hundreds/thousands of rows on screen, a
+  // state update (and full table re-render) per pixel of mouse movement made the drag feel
+  // completely unresponsive. React state is only touched once, on mouseup, to persist the result.
   function startColumnResize(fieldKey: string, e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const startX = e.clientX;
     const startWidth = columnWidth(fieldKey);
+    const col = colRefs.current[fieldKey];
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    let finalWidth = startWidth;
 
     function onMouseMove(ev: MouseEvent) {
-      const nextWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + (ev.clientX - startX));
-      setColumnWidths((prev) => ({ ...prev, [fieldKey]: nextWidth }));
+      finalWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + (ev.clientX - startX));
+      if (col) col.style.width = `${finalWidth}px`;
     }
     function onMouseUp() {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+
       setColumnWidths((prev) => {
+        const next = { ...prev, [fieldKey]: finalWidth };
         try {
-          localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(prev));
+          localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(next));
         } catch {
           // ignore (private browsing / storage disabled)
         }
-        return prev;
+        return next;
       });
     }
     window.addEventListener("mousemove", onMouseMove);
@@ -352,7 +368,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
             <colgroup>
               {canBulkEdit && <col style={{ width: 36 }} />}
               {[ID_FIELD, ...columns].map((f) => (
-                <col key={f.key} style={{ width: columnWidth(f.key) }} />
+                <col key={f.key} ref={(el) => { colRefs.current[f.key] = el; }} style={{ width: columnWidth(f.key) }} />
               ))}
               <col style={{ width: 90 }} />
             </colgroup>
@@ -368,7 +384,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                   </th>
                 )}
                 {[ID_FIELD, ...columns].map((f) => (
-                  <th key={f.key} className="relative overflow-hidden border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500">
+                  <th key={f.key} className="relative border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500">
                     <span className="inline-flex max-w-full items-center overflow-hidden">
                       <button
                         onClick={() => f.sortable !== false && toggleSort(f.key)}
@@ -400,7 +416,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                     </span>
                     <div
                       onMouseDown={(e) => startColumnResize(f.key, e)}
-                      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none hover:bg-brand/40 print:hidden"
+                      className="absolute -right-1 top-0 z-10 h-full w-2.5 cursor-col-resize select-none hover:bg-brand/50 active:bg-brand/70 print:hidden"
                       title="Arraste para redimensionar a coluna"
                     />
                   </th>
