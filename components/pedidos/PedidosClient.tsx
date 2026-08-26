@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PEDIDO_FIELDS, type FieldDef } from "@/lib/fields";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { usePedidoOptions } from "@/lib/useOptions";
@@ -12,7 +12,10 @@ import BulkEditModal from "@/components/pedidos/BulkEditModal";
 
 const ID_FIELD: FieldDef = { key: "id", label: "#", type: "number", formEditable: false };
 
-const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+// Every row is a single line — content that doesn't fit is truncated with an ellipsis, and the
+// full value is available as a native tooltip (title attribute) on hover, rather than resizable
+// columns or wrapped multi-line cells.
+const COLUMN_MAX_WIDTHS: Record<string, number> = {
   id: 70,
   status: 130,
   cliente: 160,
@@ -35,17 +38,6 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   anexos: 90,
   editadoPor: 150,
 };
-const MIN_COLUMN_WIDTH = 50;
-const COLUMN_WIDTHS_STORAGE_KEY = "imetal:pedidos:columnWidths";
-
-function loadStoredColumnWidths(): Record<string, number> {
-  try {
-    const raw = localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
 
 /** Paints the row with the exact status color as configured in /admin/status — no blending, per the client's explicit call. */
 function rowTint(color: string | undefined): React.CSSProperties {
@@ -88,64 +80,8 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
-  const colRefs = useRef<Record<string, HTMLTableColElement | null>>({});
-
-  useEffect(() => {
-    setColumnWidths(loadStoredColumnWidths());
-  }, []);
 
   const canBulkEdit = isAdmin || canEdit;
-
-  function columnWidth(fieldKey: string): number {
-    return columnWidths[fieldKey] ?? DEFAULT_COLUMN_WIDTHS[fieldKey] ?? 150;
-  }
-
-  // Resizes by writing directly to the <col> element's style during the drag, instead of going
-  // through React state on every pointer move — with hundreds/thousands of rows on screen, a
-  // state update (and full table re-render) per pixel of movement made the drag feel completely
-  // unresponsive. React state is only touched once, on release, to persist the result.
-  // Uses the Pointer Events API with explicit capture on the handle itself (setPointerCapture)
-  // instead of window-level mouse listeners, so the drag keeps tracking reliably even once the
-  // cursor leaves the (intentionally thin) handle strip.
-  const resizeState = useRef<{ fieldKey: string; startX: number; startWidth: number; finalWidth: number } | null>(null);
-
-  function handleResizePointerDown(fieldKey: string, e: React.PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
-    e.stopPropagation();
-    const startWidth = columnWidth(fieldKey);
-    resizeState.current = { fieldKey, startX: e.clientX, startWidth, finalWidth: startWidth };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  }
-
-  function handleResizePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const state = resizeState.current;
-    if (!state) return;
-    state.finalWidth = Math.max(MIN_COLUMN_WIDTH, state.startWidth + (e.clientX - state.startX));
-    const col = colRefs.current[state.fieldKey];
-    if (col) col.style.width = `${state.finalWidth}px`;
-  }
-
-  function handleResizePointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const state = resizeState.current;
-    if (!state) return;
-    resizeState.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-
-    setColumnWidths((prev) => {
-      const next = { ...prev, [state.fieldKey]: state.finalWidth };
-      try {
-        localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore (private browsing / storage disabled)
-      }
-      return next;
-    });
-  }
 
   useEffect(() => {
     const t = setTimeout(() => setQuickSearch(quickSearchInput), 350);
@@ -370,14 +306,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
           style={hasFilters ? { height: "70vh", minHeight: "260px", maxHeight: "90vh" } : undefined}
           title={hasFilters ? "Arraste o canto inferior direito para ajustar a altura" : undefined}
         >
-          <table className="table-fixed border-collapse text-sm">
-            <colgroup>
-              {canBulkEdit && <col style={{ width: 36 }} />}
-              {[ID_FIELD, ...columns].map((f) => (
-                <col key={f.key} ref={(el) => { colRefs.current[f.key] = el; }} style={{ width: columnWidth(f.key) }} />
-              ))}
-              <col style={{ width: 90 }} />
-            </colgroup>
+          <table className="border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-slate-50 print:static">
               <tr>
                 {canBulkEdit && (
@@ -390,7 +319,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                   </th>
                 )}
                 {[ID_FIELD, ...columns].map((f) => (
-                  <th key={f.key} className="relative border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500">
+                  <th
+                    key={f.key}
+                    style={{ maxWidth: COLUMN_MAX_WIDTHS[f.key] ?? 150 }}
+                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500"
+                  >
                     <span className="inline-flex max-w-full items-center overflow-hidden">
                       <button
                         onClick={() => f.sortable !== false && toggleSort(f.key)}
@@ -420,14 +353,6 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                         />
                       )}
                     </span>
-                    <div
-                      onPointerDown={(e) => handleResizePointerDown(f.key, e)}
-                      onPointerMove={handleResizePointerMove}
-                      onPointerUp={handleResizePointerUp}
-                      onPointerCancel={handleResizePointerUp}
-                      className="absolute -right-1 top-0 z-10 h-full w-2.5 touch-none cursor-col-resize select-none hover:bg-brand/50 active:bg-brand/70 print:hidden"
-                      title="Arraste para redimensionar a coluna"
-                    />
                   </th>
                 ))}
                 <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 print:hidden">Ações</th>
@@ -460,9 +385,16 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                         <input type="checkbox" checked={selectedIds.has(pedido.id)} onChange={() => toggleSelect(pedido.id)} />
                       </td>
                     )}
-                    <td className="overflow-hidden px-3 py-2 text-slate-400">{pedido.id}</td>
+                    <td className="truncate px-3 py-2 text-slate-400" style={{ maxWidth: COLUMN_MAX_WIDTHS.id }}>
+                      {pedido.id}
+                    </td>
                     {columns.map((f) => (
-                      <td key={f.key} className="overflow-hidden whitespace-normal break-words px-3 py-2 align-top text-slate-700">
+                      <td
+                        key={f.key}
+                        title={cellText(pedido, f.key) || undefined}
+                        style={{ maxWidth: COLUMN_MAX_WIDTHS[f.key] ?? 150 }}
+                        className="truncate px-3 py-2 text-slate-700"
+                      >
                         {cellValue(pedido, f.key)}
                       </td>
                     ))}
