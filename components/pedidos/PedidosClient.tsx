@@ -102,43 +102,49 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   }
 
   // Resizes by writing directly to the <col> element's style during the drag, instead of going
-  // through React state on every mousemove — with hundreds/thousands of rows on screen, a
-  // state update (and full table re-render) per pixel of mouse movement made the drag feel
-  // completely unresponsive. React state is only touched once, on mouseup, to persist the result.
-  function startColumnResize(fieldKey: string, e: React.MouseEvent) {
+  // through React state on every pointer move — with hundreds/thousands of rows on screen, a
+  // state update (and full table re-render) per pixel of movement made the drag feel completely
+  // unresponsive. React state is only touched once, on release, to persist the result.
+  // Uses the Pointer Events API with explicit capture on the handle itself (setPointerCapture)
+  // instead of window-level mouse listeners, so the drag keeps tracking reliably even once the
+  // cursor leaves the (intentionally thin) handle strip.
+  const resizeState = useRef<{ fieldKey: string; startX: number; startWidth: number; finalWidth: number } | null>(null);
+
+  function handleResizePointerDown(fieldKey: string, e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
-    const startX = e.clientX;
     const startWidth = columnWidth(fieldKey);
-    const col = colRefs.current[fieldKey];
-
+    resizeState.current = { fieldKey, startX: e.clientX, startWidth, finalWidth: startWidth };
+    e.currentTarget.setPointerCapture(e.pointerId);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+  }
 
-    let finalWidth = startWidth;
+  function handleResizePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const state = resizeState.current;
+    if (!state) return;
+    state.finalWidth = Math.max(MIN_COLUMN_WIDTH, state.startWidth + (e.clientX - state.startX));
+    const col = colRefs.current[state.fieldKey];
+    if (col) col.style.width = `${state.finalWidth}px`;
+  }
 
-    function onMouseMove(ev: MouseEvent) {
-      finalWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + (ev.clientX - startX));
-      if (col) col.style.width = `${finalWidth}px`;
-    }
-    function onMouseUp() {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+  function handleResizePointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const state = resizeState.current;
+    if (!state) return;
+    resizeState.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
 
-      setColumnWidths((prev) => {
-        const next = { ...prev, [fieldKey]: finalWidth };
-        try {
-          localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore (private browsing / storage disabled)
-        }
-        return next;
-      });
-    }
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+    setColumnWidths((prev) => {
+      const next = { ...prev, [state.fieldKey]: state.finalWidth };
+      try {
+        localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore (private browsing / storage disabled)
+      }
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -415,8 +421,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                       )}
                     </span>
                     <div
-                      onMouseDown={(e) => startColumnResize(f.key, e)}
-                      className="absolute -right-1 top-0 z-10 h-full w-2.5 cursor-col-resize select-none hover:bg-brand/50 active:bg-brand/70 print:hidden"
+                      onPointerDown={(e) => handleResizePointerDown(f.key, e)}
+                      onPointerMove={handleResizePointerMove}
+                      onPointerUp={handleResizePointerUp}
+                      onPointerCancel={handleResizePointerUp}
+                      className="absolute -right-1 top-0 z-10 h-full w-2.5 touch-none cursor-col-resize select-none hover:bg-brand/50 active:bg-brand/70 print:hidden"
                       title="Arraste para redimensionar a coluna"
                     />
                   </th>
