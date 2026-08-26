@@ -7,9 +7,9 @@ import { PEDIDO_FIELD_KEYS } from "../lib/fields";
 
 const prisma = new PrismaClient();
 
-// Real production export from Felipe takes priority; falls back to the earlier prototype
-// spreadsheet so a fresh checkout without Dados.xlsx still seeds something usable.
-const SOURCE_FILES = ["Dados.xlsx", "Pasta1.xlsx"];
+// Single canonical source of truth — update this filename whenever Felipe sends a new export
+// (or point SEED_SOURCE_FILE at it for a one-off import without touching this file).
+const SOURCE_FILES = ["Dados 26-08-26 Rev. 2.xlsx"];
 
 const STATUS_CONFIG: Record<string, { color: string; editable: boolean }> = {
   Finalizado: { color: "#22c55e", editable: false },
@@ -216,6 +216,7 @@ async function main() {
       const faturado = faturadoByLabel.get(row.faturadoLabel)!;
 
       return {
+        id: row.originalId,
         statusId: status.id,
         clienteId: cliente.id,
         faturamentoId: faturamento.id,
@@ -242,7 +243,16 @@ async function main() {
     for (const batch of chunk(pedidosData, 200)) {
       await prisma.pedido.createMany({ data: batch });
     }
-    console.log(`${rows.length} pedidos importados de ${path.basename(sourceFile)}.`);
+    console.log(`${rows.length} pedidos importados de ${path.basename(sourceFile)}, preservando o ID da planilha.`);
+
+    // Ids were inserted explicitly (matching the spreadsheet), so the underlying Postgres
+    // sequence never advanced — without this, the next pedido created through the app would
+    // collide with an imported id. Resync it to continue right after the highest imported id.
+    await prisma.$executeRawUnsafe(
+      `SELECT setval(pg_get_serial_sequence('"Pedido"', 'id'), (SELECT MAX(id) FROM "Pedido"))`
+    );
+    const nextId = await prisma.pedido.aggregate({ _max: { id: true } });
+    console.log(`Sequência de ID ajustada — próximo pedido criado pelo sistema começará em ${(nextId._max.id ?? 0) + 1}.`);
 
     const blankStatusIds = rows.filter((r) => r.statusWasBlank).map((r) => r.originalId);
     if (blankStatusIds.length > 0) {

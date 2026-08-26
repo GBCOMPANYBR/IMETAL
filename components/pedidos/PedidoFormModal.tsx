@@ -61,7 +61,7 @@ interface Props {
 }
 
 /** Fields carried over to the next form when "Adicionar Item" is used — the rest of the form clears for the next line item. */
-const CARRY_OVER_ON_ADD_ITEM = ["cliente", "pedidoCompra", "data"];
+const CARRY_OVER_ON_ADD_ITEM = ["cliente", "pedidoCompra", "data", "status", "faturamento", "pagamento", "tipo"];
 
 export default function PedidoFormModal({ mode, pedido, visibleFields, options, onClose, onSaved, onItemAdded }: Props) {
   const fields = useMemo(
