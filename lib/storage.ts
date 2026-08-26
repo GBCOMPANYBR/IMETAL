@@ -22,6 +22,11 @@ function safeStoredName(originalName: string): string {
   return `${random}${ext}`;
 }
 
+/** True containment check — a bare startsWith would wrongly accept a sibling dir like "storage/attachments-evil". */
+function isWithinStorageRoot(fullPath: string): boolean {
+  return fullPath === STORAGE_ROOT || fullPath.startsWith(STORAGE_ROOT + path.sep);
+}
+
 /**
  * Returns an opaque identifier for the saved file — a relative disk path in local mode,
  * or the Blob URL in Blob mode. Callers must always go through readAttachmentFile /
@@ -57,7 +62,7 @@ export async function readAttachmentFile(storedPath: string): Promise<Buffer> {
   }
 
   const fullPath = path.join(/*turbopackIgnore: true*/ STORAGE_ROOT, storedPath);
-  if (!fullPath.startsWith(STORAGE_ROOT)) {
+  if (!isWithinStorageRoot(fullPath)) {
     throw new Error("Caminho de anexo inválido.");
   }
   return readFile(fullPath);
@@ -70,6 +75,6 @@ export async function deleteAttachmentFile(storedPath: string): Promise<void> {
   }
 
   const fullPath = path.join(/*turbopackIgnore: true*/ STORAGE_ROOT, storedPath);
-  if (!fullPath.startsWith(STORAGE_ROOT)) return;
+  if (!isWithinStorageRoot(fullPath)) return;
   await unlink(fullPath).catch(() => undefined);
 }

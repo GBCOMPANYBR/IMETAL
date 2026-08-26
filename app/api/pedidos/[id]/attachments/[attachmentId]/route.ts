@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireAuth } from "@/lib/permissions";
 import { deleteAttachmentFile, readAttachmentFile } from "@/lib/storage";
 
+// Only these types are safe to render inline in the browser. Anything else (in particular
+// text/html and image/svg+xml, which can carry executable script) is forced to download —
+// the stored mimeType comes straight from the uploader's browser and is never trustworthy
+// enough to hand back as-is with an inline disposition.
+const SAFE_INLINE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"]);
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string; attachmentId: string }> }) {
   const auth = await requireAuth();
   if ("error" in auth) return auth.error;
@@ -25,10 +31,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Arquivo não encontrado no armazenamento." }, { status: 404 });
   }
 
+  const isSafeInline = SAFE_INLINE_TYPES.has(attachment.mimeType);
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
-      "Content-Type": attachment.mimeType,
-      "Content-Disposition": `inline; filename="${encodeURIComponent(attachment.filename)}"`,
+      "Content-Type": isSafeInline ? attachment.mimeType : "application/octet-stream",
+      "Content-Disposition": `${isSafeInline ? "inline" : "attachment"}; filename="${encodeURIComponent(attachment.filename)}"`,
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

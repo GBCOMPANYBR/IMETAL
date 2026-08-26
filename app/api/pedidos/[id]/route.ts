@@ -4,6 +4,7 @@ import { canEditPedidoWithStatus, requireAdmin, requireAuth } from "@/lib/permis
 import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { findDisallowedKeys, pedidoUpdateSchema } from "@/lib/pedido-payload";
 import { deleteAttachmentFile } from "@/lib/storage";
+import { runWithFkErrorHandling } from "@/lib/prisma-errors";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth();
@@ -60,33 +61,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const nextQtd = data.qtd ?? existing.qtd;
   const nextValorUnitario = data.valorUnitario ?? existing.valorUnitario;
 
-  const updated = await prisma.pedido.update({
-    where: { id: pedidoId },
-    data: {
-      ...(data.statusId !== undefined ? { statusId: data.statusId } : {}),
-      ...(data.clienteId !== undefined ? { clienteId: data.clienteId } : {}),
-      ...(data.faturamentoId !== undefined ? { faturamentoId: data.faturamentoId } : {}),
-      ...(data.tipoId !== undefined ? { tipoId: data.tipoId } : {}),
-      ...(data.faturadoId !== undefined ? { faturadoId: data.faturadoId } : {}),
-      ...(data.pedidoCompra !== undefined ? { pedidoCompra: data.pedidoCompra } : {}),
-      ...(data.data !== undefined ? { data: data.data } : {}),
-      ...(data.qtd !== undefined ? { qtd: data.qtd } : {}),
-      ...(data.codigo !== undefined ? { codigo: data.codigo } : {}),
-      ...(data.descricao !== undefined ? { descricao: data.descricao } : {}),
-      ...(data.ncm !== undefined ? { ncm: data.ncm } : {}),
-      ...(data.valorUnitario !== undefined ? { valorUnitario: data.valorUnitario } : {}),
-      ...(data.pagamento !== undefined ? { pagamento: data.pagamento } : {}),
-      ...(data.observacao !== undefined ? { observacao: data.observacao } : {}),
-      ...(data.dataFaturamento !== undefined ? { dataFaturamento: data.dataFaturamento } : {}),
-      ...(data.nf !== undefined ? { nf: data.nf } : {}),
-      ...(data.pdv !== undefined ? { pdv: data.pdv } : {}),
-      valorTotal: nextQtd * nextValorUnitario,
-      updatedById: user.id,
-    },
-    include: PEDIDO_INCLUDE,
-  });
+  const result = await runWithFkErrorHandling(() =>
+    prisma.pedido.update({
+      where: { id: pedidoId },
+      data: {
+        ...(data.statusId !== undefined ? { statusId: data.statusId } : {}),
+        ...(data.clienteId !== undefined ? { clienteId: data.clienteId } : {}),
+        ...(data.faturamentoId !== undefined ? { faturamentoId: data.faturamentoId } : {}),
+        ...(data.tipoId !== undefined ? { tipoId: data.tipoId } : {}),
+        ...(data.faturadoId !== undefined ? { faturadoId: data.faturadoId } : {}),
+        ...(data.pedidoCompra !== undefined ? { pedidoCompra: data.pedidoCompra } : {}),
+        ...(data.data !== undefined ? { data: data.data } : {}),
+        ...(data.qtd !== undefined ? { qtd: data.qtd } : {}),
+        ...(data.codigo !== undefined ? { codigo: data.codigo } : {}),
+        ...(data.descricao !== undefined ? { descricao: data.descricao } : {}),
+        ...(data.ncm !== undefined ? { ncm: data.ncm } : {}),
+        ...(data.valorUnitario !== undefined ? { valorUnitario: data.valorUnitario } : {}),
+        ...(data.pagamento !== undefined ? { pagamento: data.pagamento } : {}),
+        ...(data.observacao !== undefined ? { observacao: data.observacao } : {}),
+        ...(data.dataFaturamento !== undefined ? { dataFaturamento: data.dataFaturamento } : {}),
+        ...(data.nf !== undefined ? { nf: data.nf } : {}),
+        ...(data.pdv !== undefined ? { pdv: data.pdv } : {}),
+        valorTotal: nextQtd * nextValorUnitario,
+        updatedById: user.id,
+      },
+      include: PEDIDO_INCLUDE,
+    })
+  );
+  if (result instanceof NextResponse) return result;
 
-  return NextResponse.json(serializePedido(updated, user));
+  return NextResponse.json(serializePedido(result, user));
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -8,7 +8,7 @@ import { isValidFieldKey } from "@/lib/fields";
 const createSchema = z.object({
   username: z.string().trim().min(3, "Login deve ter ao menos 3 caracteres."),
   name: z.string().trim().min(1, "Informe o nome."),
-  password: z.string().min(4, "Senha deve ter ao menos 4 caracteres."),
+  password: z.string().min(8, "Senha deve ter ao menos 8 caracteres."),
   role: z.enum(["ADMIN", "USER"]).default("USER"),
   canEdit: z.boolean().default(true),
   active: z.boolean().default(true),

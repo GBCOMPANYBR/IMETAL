@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/permissions";
 import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { parsePedidoQuery } from "@/lib/pedido-filters";
 import { findDisallowedKeys, pedidoCreateSchema } from "@/lib/pedido-payload";
+import { runWithFkErrorHandling } from "@/lib/prisma-errors";
 
 const PAGE_SIZE = 50;
 // Safety net for the "no pagination while filtered" mode — real datasets here are small (low thousands).
@@ -89,31 +90,34 @@ export async function POST(req: Request) {
 
   const valorTotal = data.qtd * data.valorUnitario;
 
-  const created = await prisma.pedido.create({
-    data: {
-      statusId: data.statusId,
-      clienteId: data.clienteId,
-      faturamentoId: data.faturamentoId,
-      tipoId: data.tipoId,
-      faturadoId: faturadoNao.id,
-      pedidoCompra: data.pedidoCompra,
-      data: data.data,
-      qtd: data.qtd,
-      codigo: data.codigo,
-      descricao: data.descricao,
-      ncm: data.ncm,
-      valorUnitario: data.valorUnitario,
-      valorTotal,
-      pagamento: data.pagamento,
-      observacao: data.observacao,
-      dataFaturamento: data.dataFaturamento,
-      nf: data.nf,
-      pdv: data.pdv,
-      createdById: user.id,
-      updatedById: user.id,
-    },
-    include: PEDIDO_INCLUDE,
-  });
+  const result = await runWithFkErrorHandling(() =>
+    prisma.pedido.create({
+      data: {
+        statusId: data.statusId,
+        clienteId: data.clienteId,
+        faturamentoId: data.faturamentoId,
+        tipoId: data.tipoId,
+        faturadoId: faturadoNao.id,
+        pedidoCompra: data.pedidoCompra,
+        data: data.data,
+        qtd: data.qtd,
+        codigo: data.codigo,
+        descricao: data.descricao,
+        ncm: data.ncm,
+        valorUnitario: data.valorUnitario,
+        valorTotal,
+        pagamento: data.pagamento,
+        observacao: data.observacao,
+        dataFaturamento: data.dataFaturamento,
+        nf: data.nf,
+        pdv: data.pdv,
+        createdById: user.id,
+        updatedById: user.id,
+      },
+      include: PEDIDO_INCLUDE,
+    })
+  );
+  if (result instanceof NextResponse) return result;
 
-  return NextResponse.json(serializePedido(created, user), { status: 201 });
+  return NextResponse.json(serializePedido(result, user), { status: 201 });
 }
