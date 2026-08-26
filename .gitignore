@@ -11,7 +11,8 @@ storage/
 .DS_Store
 
 # Planilhas com dados reais de clientes/valores — não versionar.
-Dados.xlsx
+Dados*.xlsx
 Pasta1.xlsx
+*.xlsx
 .vercel
 .env*

@@ -42,15 +42,20 @@ export async function GET(req: Request) {
       .sort((a, b) => b.total - a.total);
   }
 
-  if (canValorTotal && user.visibleFields.has("data")) {
-    const grouped = await prisma.pedido.groupBy({
-      by: ["data"],
-      where,
-      _sum: { valorTotal: true },
-    });
-    result.porData = grouped
+  const dateFieldParam = searchParams.get("dateField");
+  const dateField = dateFieldParam === "dataFaturamento" ? "dataFaturamento" : "data";
+
+  if (canValorTotal && user.visibleFields.has(dateField)) {
+    let porData: { data: Date | null; total: number }[];
+    if (dateField === "dataFaturamento") {
+      const grouped = await prisma.pedido.groupBy({ by: ["dataFaturamento"], where, _sum: { valorTotal: true } });
+      porData = grouped.map((g) => ({ data: g.dataFaturamento, total: g._sum.valorTotal ?? 0 }));
+    } else {
+      const grouped = await prisma.pedido.groupBy({ by: ["data"], where, _sum: { valorTotal: true } });
+      porData = grouped.map((g) => ({ data: g.data, total: g._sum.valorTotal ?? 0 }));
+    }
+    result.porData = porData
       .filter((g) => g.data !== null)
-      .map((g) => ({ data: g.data, total: g._sum.valorTotal ?? 0 }))
       .sort((a, b) => new Date(a.data as Date).getTime() - new Date(b.data as Date).getTime());
   }
 

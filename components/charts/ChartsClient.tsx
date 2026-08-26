@@ -29,6 +29,7 @@ export default function ChartsClient({ visibleFields }: Props) {
   const canValorTotal = visibleSet.has("valorTotal");
   const canCliente = visibleSet.has("cliente");
   const canData = visibleSet.has("data");
+  const canDataFaturamento = visibleSet.has("dataFaturamento");
   const canFaturado = visibleSet.has("faturado");
 
   const { options } = usePedidoOptions();
@@ -36,6 +37,7 @@ export default function ChartsClient({ visibleFields }: Props) {
   const [dataFrom, setDataFrom] = useState("");
   const [dataTo, setDataTo] = useState("");
   const [faturadoFilter, setFaturadoFilter] = useState<FaturadoFilter>("TODOS");
+  const [dateField, setDateField] = useState<"data" | "dataFaturamento">(canData ? "data" : "dataFaturamento");
   const [chartData, setChartData] = useState<{
     geral: number | null;
     porCliente: { cliente: string; total: number }[] | null;
@@ -58,11 +60,12 @@ export default function ChartsClient({ visibleFields }: Props) {
 
     setLoading(true);
     const params = buildPedidosQueryParams({ filters, quickSearch: "" });
+    params.set("dateField", dateField);
     fetch(`/api/pedidos/chart-data?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : { geral: null, porCliente: null, porData: null }))
       .then(setChartData)
       .finally(() => setLoading(false));
-  }, [clienteIds, dataFrom, dataTo, faturadoFilter, options.faturado]);
+  }, [clienteIds, dataFrom, dataTo, faturadoFilter, dateField, options.faturado]);
 
   if (!canValorTotal) {
     return (
@@ -170,9 +173,33 @@ export default function ChartsClient({ visibleFields }: Props) {
             </div>
           )}
 
-          {canData && chartData.porData && (
+          {(canData || canDataFaturamento) && chartData.porData && (
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-600">Valor Total por Data</h2>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-slate-600">
+                  Valor Total por {dateField === "data" ? "Data do Pedido" : "Data de Faturamento"}
+                </h2>
+                {canData && canDataFaturamento && (
+                  <div className="flex gap-1 rounded-lg border border-slate-300 p-0.5">
+                    <button
+                      onClick={() => setDateField("data")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                        dateField === "data" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      Data do Pedido
+                    </button>
+                    <button
+                      onClick={() => setDateField("dataFaturamento")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                        dateField === "dataFaturamento" ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      Data de Faturamento
+                    </button>
+                  </div>
+                )}
+              </div>
               {chartData.porData.length === 0 ? (
                 <p className="py-10 text-center text-sm text-slate-400">Sem dados para os filtros selecionados.</p>
               ) : (

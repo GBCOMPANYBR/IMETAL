@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canEditPedidoWithStatus, requireAuth } from "@/lib/permissions";
+import { requireAuth } from "@/lib/permissions";
 import { saveAttachmentFile } from "@/lib/storage";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -38,7 +38,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!pedido) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
-  if (!canEditPedidoWithStatus(user, pedido.status.editable)) {
+  // Uploading is allowed for anyone who can see the anexos column — even a read-only user —
+  // as long as the record itself isn't locked. Deleting an attachment stays ADMIN-only.
+  if (!user.isAdmin && !pedido.status.editable) {
     return NextResponse.json({ error: "Este pedido está com um status que não permite edição." }, { status: 423 });
   }
 

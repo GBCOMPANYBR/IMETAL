@@ -15,7 +15,10 @@ export async function GET(req: Request) {
   const { user } = auth;
 
   const { searchParams } = new URL(req.url);
-  const { where, orderBy, hasFilters, page } = parsePedidoQuery(searchParams, user.visibleFields);
+  const { where, orderBy, hasFilters: hasFiltersFromQuery, page } = parsePedidoQuery(searchParams, user.visibleFields);
+  // Exporting always returns the full matching set, ignoring pagination — even with no filters applied.
+  const isExport = searchParams.get("export") === "1";
+  const hasFilters = hasFiltersFromQuery || isExport;
 
   const total = await prisma.pedido.count({ where });
 

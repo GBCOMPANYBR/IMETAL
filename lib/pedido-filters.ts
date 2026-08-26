@@ -29,6 +29,15 @@ function endOfDay(date: Date): Date {
   return d;
 }
 
+/** Parses a free-typed number that may use Brazilian formatting ("1.500,50" or "1500,5"), or null if it isn't one. */
+function parseSearchedNumber(q: string): number | null {
+  const cleaned = q.trim();
+  if (!/^-?[\d.,]+$/.test(cleaned)) return null;
+  const normalized = cleaned.includes(",") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: Set<string>): ParsedPedidoQuery {
   const and: Prisma.PedidoWhereInput[] = [];
   let hasFilters = false;
@@ -113,6 +122,15 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     if (visibleFields.has("faturamento")) or.push({ faturamento: { label: { contains: q } } });
     if (visibleFields.has("tipo")) or.push({ tipo: { label: { contains: q } } });
     if (visibleFields.has("faturado")) or.push({ faturado: { label: { contains: q } } });
+
+    const asNumber = parseSearchedNumber(q);
+    if (asNumber !== null) {
+      const EPSILON = 0.005;
+      const range = { gte: asNumber - EPSILON, lte: asNumber + EPSILON };
+      if (visibleFields.has("valorTotal")) or.push({ valorTotal: range });
+      if (visibleFields.has("valorUnitario")) or.push({ valorUnitario: range });
+    }
+
     if (or.length > 0) and.push({ OR: or });
   }
 
