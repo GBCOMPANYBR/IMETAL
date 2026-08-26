@@ -76,6 +76,13 @@ function excelSerialToDate(value: unknown): Date | null {
 }
 
 function resolveSourceFile(): string {
+  if (process.env.SEED_SOURCE_FILE) {
+    const override = path.resolve(process.cwd(), process.env.SEED_SOURCE_FILE);
+    if (!fs.existsSync(override)) {
+      throw new Error(`SEED_SOURCE_FILE aponta para um arquivo que não existe: ${override}`);
+    }
+    return override;
+  }
   for (const name of SOURCE_FILES) {
     const filePath = path.resolve(process.cwd(), name);
     if (fs.existsSync(filePath)) return filePath;
@@ -196,44 +203,6 @@ async function main() {
     },
   });
   console.log(`Usuário ADMIN pronto: ${admin.username} / senha padrão "${adminPassword}" (troque após o primeiro acesso).`);
-
-  // Perfis de exemplo (nivel1/nivel2/nivel3), replicando os níveis de acesso que o
-  // próprio usuário esboçou na planilha original — servem de referência/ponto de
-  // partida e podem ser editados ou removidos livremente em /admin/usuarios.
-  const EXAMPLE_PROFILES: { username: string; name: string; canEdit: boolean; fields: string[] }[] = [
-    { username: "nivel1", name: "Perfil Nível 1 (somente leitura)", canEdit: false, fields: PEDIDO_FIELD_KEYS },
-    {
-      username: "nivel2",
-      name: "Perfil Nível 2 (operacional)",
-      canEdit: false,
-      fields: ["status", "cliente", "pedidoCompra", "data", "qtd", "codigo", "descricao", "observacao", "anexos"],
-    },
-    {
-      username: "nivel3",
-      name: "Perfil Nível 3 (comercial)",
-      canEdit: true,
-      fields: [
-        "status", "cliente", "pedidoCompra", "data", "qtd", "codigo", "descricao",
-        "faturamento", "tipo", "observacao", "faturado", "dataFaturamento", "nf", "pdv", "anexos",
-      ],
-    },
-  ];
-  for (const profile of EXAMPLE_PROFILES) {
-    await prisma.user.upsert({
-      where: { username: profile.username },
-      update: {},
-      create: {
-        username: profile.username,
-        name: profile.name,
-        passwordHash: await hashPassword(adminPassword),
-        role: "USER",
-        canEdit: profile.canEdit,
-        active: true,
-        permissions: { create: profile.fields.map((fieldKey) => ({ fieldKey, canView: true })) },
-      },
-    });
-  }
-  console.log(`Usuários de exemplo criados: nivel1, nivel2, nivel3 (mesma senha padrão "${adminPassword}").`);
 
   const existingPedidos = await prisma.pedido.count();
   if (existingPedidos > 0) {

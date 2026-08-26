@@ -39,29 +39,29 @@ npm run dev                 # http://localhost:3000
 
 Copie `.env.example` para `.env` e preencha `DATABASE_URL`/`DATABASE_URL_UNPOOLED` (pegue em Vercel → projeto → Storage → banco Postgres → aba ".env.local") e, se quiser testar upload de anexos como em produção, `BLOB_READ_WRITE_TOKEN` também.
 
-O seed procura primeiro `Dados.xlsx` (planilha real) na raiz do projeto; se não encontrar, usa `Pasta1.xlsx` (protótipo) como alternativa. Nenhuma das duas é versionada no git (dados reais de clientes/valores) — copie o arquivo manualmente antes de rodar `db:seed` num ambiente novo.
+O seed procura, na raiz do projeto: primeiro o arquivo apontado por `SEED_SOURCE_FILE` (se essa variável estiver definida), depois `Dados.xlsx`, depois `Pasta1.xlsx` (protótipo). Nenhum `.xlsx` é versionado no git (dados reais de clientes/valores) — copie o arquivo manualmente antes de rodar `db:seed` num ambiente novo.
 
 Durante o desenvolvimento, use `npm run dev` em vez de `build`/`start`.
 
-### Usuários criados pelo seed
+### Usuários
 
-| Login    | Senha       | Perfil                                            |
-|----------|-------------|----------------------------------------------------|
-| admin    | imetal123   | ADMIN — acesso total, único que exclui registros    |
-| nivel1   | imetal123   | Vê todas as colunas, somente leitura                |
-| nivel2   | imetal123   | Vê um subconjunto de colunas (sem dados financeiros), somente leitura |
-| nivel3   | imetal123   | Vê quase tudo (exceto NCM/Valor/Pagamento) e pode editar |
+Criados fora do seed, direto em `/admin/usuarios` — o seed só garante que existe um ADMIN (`admin`, senha inicial `imetal123`, **troque assim que possível**). Não recria nem reseta os demais usuários.
 
-**Troque essas senhas em `/admin/usuarios` assim que possível.** Os perfis nivel1/nivel2/nivel3 replicam exemplos de níveis de acesso esboçados originalmente pelo próprio Felipe e servem apenas de ponto de partida — edite as permissões ou exclua esses usuários livremente.
+### Trocando a base de pedidos por uma planilha atualizada
 
-### Sobre os dados importados (Dados.xlsx)
+Quando o Felipe manda uma planilha nova (ex.: `Dados-26-08-2026.xlsx`) pra substituir os pedidos:
 
-- **3.948 pedidos** importados, de 2021 até 2026, somando ~R$ 31,1 milhões em Valor Total.
-- **45 clientes** distintos.
-- **6 status** detectados na planilha: Finalizado e Cancelado entram travados para edição; Em andamento, Instalação, Sem ação e Externo entram liberados — ajuste em `/admin/status` se algum desses não fizer sentido.
-- 22 pedidos estavam sem Status na planilha original e entraram como "Sem ação"; 1 pedido tinha um valor de Tipo inválido ("CAJAMAR", claramente um erro de digitação) e entrou como "VENDA". O seed lista os IDs originais desses casos no terminal ao rodar `db:seed` — vale conferir esses registros específicos depois de importar.
-- A coluna "Anexos" da planilha era só uma contagem em texto — não havia arquivos reais, então os pedidos importados nascem sem anexos; anexe os arquivos de verdade pela tela.
-- Alguns nomes de cliente parecem duplicados por grafia (ex.: "GIG WATER" vs "GIGWATER", "PRIMO TEDESCO" vs "PRIMOTEDESCO") — mantive como estavam na planilha por não ter certeza se são a mesma empresa. A tela `/admin/clientes` hoje só renomeia um cadastro, não faz merge de dois cadastros num só; se confirmarem que são a mesma empresa, isso precisa de um ajuste direto no banco (posso fazer) para mover os pedidos de um cadastro pro outro antes de excluir o duplicado.
+```bash
+# 1. Apaga os pedidos atuais (NÃO mexe em usuários, status, clientes, etc.)
+npx tsx -e "import { prisma } from './lib/prisma'; prisma.pedido.deleteMany({}).then(r => console.log(r.count, 'apagados')).finally(() => prisma.\$disconnect())"
+
+# 2. Reimporta da planilha nova
+SEED_SOURCE_FILE="Dados-26-08-2026.xlsx" npm run db:seed
+```
+
+**Só faça isso se ninguém tiver cadastrado/editado pedidos direto pelo sistema desde a última importação** — como é um "apaga tudo e reimporta", qualquer pedido criado ou editado só no site (não na planilha) seria perdido. Se houver dúvida, confirme antes.
+
+O seed detecta automaticamente Status/Cliente/Faturamento/Tipo novos na planilha (cria via upsert, sem duplicar os que já existem) e avisa no terminal sobre linhas sem Status ou com Tipo inválido, indicando o ID original de cada uma pra conferência manual. A coluna "Anexos" da planilha é só uma contagem em texto — não existem arquivos de verdade nela, então os pedidos reimportados sempre nascem sem anexos (os que já tinham anexo real, anexado pela tela, perdem esse anexo se o pedido for reimportado — o arquivo em si continua no Blob, só o vínculo com o pedido se perde).
 
 ## Alternativa: servidor próprio (sem Vercel)
 
