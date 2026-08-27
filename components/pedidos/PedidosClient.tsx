@@ -334,14 +334,16 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                     style={{ maxWidth: COLUMN_MAX_WIDTHS[f.key] ?? 150 }}
                     className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-500"
                   >
-                    <span className="inline-flex max-w-full items-center overflow-hidden">
-                      <button
-                        onClick={() => f.sortable !== false && toggleSort(f.key)}
-                        className="truncate hover:text-slate-700 disabled:cursor-default disabled:opacity-50"
-                        disabled={f.sortable === false}
-                      >
-                        {f.label} {sort === f.key ? (dir === "asc" ? "▲" : "▼") : ""}
-                      </button>
+                    <div className="flex max-w-full items-center">
+                      <span className="min-w-0 overflow-hidden">
+                        <button
+                          onClick={() => f.sortable !== false && toggleSort(f.key)}
+                          className="truncate hover:text-slate-700 disabled:cursor-default disabled:opacity-50"
+                          disabled={f.sortable === false}
+                        >
+                          {f.label} {sort === f.key ? (dir === "asc" ? "▲" : "▼") : ""}
+                        </button>
+                      </span>
                       {f.filterable !== false && (
                         <ColumnFilter
                           field={f}
@@ -362,7 +364,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                           }
                         />
                       )}
-                    </span>
+                    </div>
                   </th>
                 ))}
                 <th className="border-b border-slate-200 px-3 py-2 text-right font-semibold text-slate-500 print:hidden">Ações</th>
