@@ -33,6 +33,7 @@ export default function ColumnFilter({ field, value, onChange, fkOptions }: Prop
   const isFk = ["status", "cliente", "faturamento", "tipo", "faturado"].includes(field.type);
   const isNumber = field.type === "number" || field.type === "currency";
   const isDate = field.type === "date";
+  const isAttachments = field.type === "attachments";
 
   return (
     <div className="relative inline-block" ref={ref}>
@@ -75,7 +76,16 @@ export default function ColumnFilter({ field, value, onChange, fkOptions }: Prop
               }}
             />
           )}
-          {!isFk && !isNumber && !isDate && (
+          {isAttachments && (
+            <AttachmentsFilter
+              value={value?.type === "boolean" ? value.value : undefined}
+              onApply={(v) => {
+                onChange(v === undefined ? undefined : { type: "boolean", value: v });
+                setOpen(false);
+              }}
+            />
+          )}
+          {!isFk && !isNumber && !isDate && !isAttachments && (
             <TextFilter
               value={value?.type === "text" ? value.value : ""}
               onApply={(v) => {
@@ -195,6 +205,26 @@ function FkFilter({ options, value, onApply }: { options: FkOption[]; value: num
           onApply([]);
         }}
       />
+    </div>
+  );
+}
+
+function AttachmentsFilter({ value, onApply }: { value: boolean | undefined; onApply: (v: boolean | undefined) => void }) {
+  return (
+    <div className="space-y-1">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+        <input type="radio" name="anexos-filter" checked={value === true} onChange={() => onApply(true)} />
+        Com anexo
+      </label>
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+        <input type="radio" name="anexos-filter" checked={value === false} onChange={() => onApply(false)} />
+        Sem anexo
+      </label>
+      <div className="pt-1">
+        <button onClick={() => onApply(undefined)} className="text-xs font-medium text-slate-400 hover:text-slate-600">
+          Limpar
+        </button>
+      </div>
     </div>
   );
 }

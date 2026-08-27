@@ -108,6 +108,25 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     }
   }
 
+  if (visibleFields.has("editadoPor")) {
+    const raw = searchParams.get("f_editadoPor");
+    if (raw) {
+      and.push({ updatedBy: { name: { contains: raw } } });
+      hasFilters = true;
+    }
+  }
+
+  if (visibleFields.has("anexos")) {
+    const raw = searchParams.get("f_anexos");
+    if (raw === "1") {
+      and.push({ attachments: { some: {} } });
+      hasFilters = true;
+    } else if (raw === "0") {
+      and.push({ attachments: { none: {} } });
+      hasFilters = true;
+    }
+  }
+
   const q = searchParams.get("q")?.trim();
   if (q) {
     hasFilters = true;
@@ -122,6 +141,10 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     if (visibleFields.has("faturamento")) or.push({ faturamento: { label: { contains: q } } });
     if (visibleFields.has("tipo")) or.push({ tipo: { label: { contains: q } } });
     if (visibleFields.has("faturado")) or.push({ faturado: { label: { contains: q } } });
+    if (visibleFields.has("editadoPor")) or.push({ updatedBy: { name: { contains: q } } });
+
+    // ID has no permission gate — always searchable, matching how it's always shown as the row key.
+    if (/^\d+$/.test(q)) or.push({ id: Number(q) });
 
     const asNumber = parseSearchedNumber(q);
     if (asNumber !== null) {

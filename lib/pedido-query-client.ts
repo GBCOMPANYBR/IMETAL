@@ -2,7 +2,8 @@ export type FilterValue =
   | { type: "fk"; ids: number[] }
   | { type: "text"; value: string }
   | { type: "number"; min?: number; max?: number }
-  | { type: "date"; from?: string; to?: string };
+  | { type: "date"; from?: string; to?: string }
+  | { type: "boolean"; value: boolean };
 
 export type FiltersState = Record<string, FilterValue>;
 
@@ -17,6 +18,8 @@ export function isFilterActive(f: FilterValue | undefined): boolean {
       return f.min !== undefined || f.max !== undefined;
     case "date":
       return Boolean(f.from || f.to);
+    case "boolean":
+      return true;
   }
 }
 
@@ -48,6 +51,8 @@ export function buildPedidosQueryParams(opts: QueryOptions): URLSearchParams {
     } else if (filter.type === "date") {
       if (filter.from) params.set(`f_${fieldKey}_from`, filter.from);
       if (filter.to) params.set(`f_${fieldKey}_to`, filter.to);
+    } else if (filter.type === "boolean") {
+      params.set(`f_${fieldKey}`, filter.value ? "1" : "0");
     }
   }
 

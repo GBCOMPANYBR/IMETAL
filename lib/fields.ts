@@ -48,8 +48,8 @@ export const PEDIDO_FIELDS: FieldDef[] = [
   { key: "dataFaturamento", label: "Data Faturamento", type: "date", formEditable: true },
   { key: "nf", label: "NF", type: "text", formEditable: true },
   { key: "pdv", label: "PDV", type: "text", formEditable: true },
-  { key: "anexos", label: "Anexos", type: "attachments", formEditable: false, sortable: false, filterable: false },
-  { key: "editadoPor", label: "Editado por", type: "text", formEditable: false, computed: true, sortable: false, filterable: false },
+  { key: "anexos", label: "Anexos", type: "attachments", formEditable: false, sortable: false },
+  { key: "editadoPor", label: "Editado por", type: "text", formEditable: false, computed: true, sortable: false },
 ];
 
 export const PEDIDO_FIELD_KEYS = PEDIDO_FIELDS.map((f) => f.key);

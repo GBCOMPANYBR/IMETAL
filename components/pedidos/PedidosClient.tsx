@@ -10,7 +10,7 @@ import PedidoFormModal, { type PedidoRecord } from "@/components/pedidos/PedidoF
 import AttachmentsModal from "@/components/pedidos/AttachmentsModal";
 import BulkEditModal from "@/components/pedidos/BulkEditModal";
 
-const ID_FIELD: FieldDef = { key: "id", label: "#", type: "number", formEditable: false };
+const ID_FIELD: FieldDef = { key: "id", label: "ID", type: "number", formEditable: false };
 
 // Every row is a single line — content that doesn't fit is truncated with an ellipsis, and the
 // full value is available as a native tooltip (title attribute) on hover, rather than resizable
@@ -243,6 +243,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
     }
   }
 
+  const displayedTotal = useMemo(
+    () => items.reduce((sum, p) => sum + ((p as unknown as { valorTotal?: number }).valorTotal ?? 0), 0),
+    [items]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 print:hidden">
@@ -252,6 +257,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
           placeholder="Buscar em todos os campos visíveis..."
           className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
         />
+        {isAdmin && !loading && (
+          <span className="text-sm font-medium text-slate-600">
+            Total exibido: <span className="font-semibold text-slate-800">{formatCurrency(displayedTotal)}</span>
+          </span>
+        )}
         {filtersActive && (
           <button
             onClick={() => {
