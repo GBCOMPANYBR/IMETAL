@@ -8,6 +8,10 @@ const FK_FIELDS: Record<string, string> = {
   faturado: "faturadoId",
 };
 
+// Postgres int4 bound — "id" is an Int column, so anything above this overflows and crashes the query
+// (e.g. a Pedido de Compra number typed into quick search, which is often 10 digits).
+const INT4_MAX = 2147483647;
+
 const TEXT_FIELDS = ["pedidoCompra", "codigo", "descricao", "ncm", "pagamento", "observacao", "nf", "pdv"];
 const NUMBER_FIELDS = ["qtd", "valorUnitario", "valorTotal"];
 const DATE_FIELDS = ["data", "dataFaturamento"];
@@ -46,8 +50,8 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     const min = searchParams.get("f_id_min");
     const max = searchParams.get("f_id_max");
     const range: Record<string, number> = {};
-    if (min !== null && min !== "" && !Number.isNaN(Number(min))) range.gte = Number(min);
-    if (max !== null && max !== "" && !Number.isNaN(Number(max))) range.lte = Number(max);
+    if (min !== null && min !== "" && !Number.isNaN(Number(min)) && Number(min) <= INT4_MAX) range.gte = Number(min);
+    if (max !== null && max !== "" && !Number.isNaN(Number(max)) && Number(max) <= INT4_MAX) range.lte = Number(max);
     if (Object.keys(range).length > 0) {
       and.push({ id: range });
       hasFilters = true;
@@ -144,7 +148,7 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     if (visibleFields.has("editadoPor")) or.push({ updatedBy: { name: { contains: q } } });
 
     // ID has no permission gate — always searchable, matching how it's always shown as the row key.
-    if (/^\d+$/.test(q)) or.push({ id: Number(q) });
+    if (/^\d+$/.test(q) && Number(q) <= INT4_MAX) or.push({ id: Number(q) });
 
     const asNumber = parseSearchedNumber(q);
     if (asNumber !== null) {
