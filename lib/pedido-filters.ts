@@ -76,7 +76,7 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     if (!visibleFields.has(fieldKey)) continue;
     const raw = searchParams.get(`f_${fieldKey}`);
     if (!raw) continue;
-    and.push({ [fieldKey]: { contains: raw } } as Prisma.PedidoWhereInput);
+    and.push({ [fieldKey]: { contains: raw, mode: "insensitive" } } as Prisma.PedidoWhereInput);
     hasFilters = true;
   }
 
@@ -115,7 +115,7 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
   if (visibleFields.has("editadoPor")) {
     const raw = searchParams.get("f_editadoPor");
     if (raw) {
-      and.push({ updatedBy: { name: { contains: raw } } });
+      and.push({ updatedBy: { name: { contains: raw, mode: "insensitive" } } });
       hasFilters = true;
     }
   }
@@ -137,15 +137,15 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     const or: Prisma.PedidoWhereInput[] = [];
     for (const fieldKey of TEXT_FIELDS) {
       if (visibleFields.has(fieldKey)) {
-        or.push({ [fieldKey]: { contains: q } } as Prisma.PedidoWhereInput);
+        or.push({ [fieldKey]: { contains: q, mode: "insensitive" } } as Prisma.PedidoWhereInput);
       }
     }
-    if (visibleFields.has("cliente")) or.push({ cliente: { name: { contains: q } } });
-    if (visibleFields.has("status")) or.push({ status: { label: { contains: q } } });
-    if (visibleFields.has("faturamento")) or.push({ faturamento: { label: { contains: q } } });
-    if (visibleFields.has("tipo")) or.push({ tipo: { label: { contains: q } } });
-    if (visibleFields.has("faturado")) or.push({ faturado: { label: { contains: q } } });
-    if (visibleFields.has("editadoPor")) or.push({ updatedBy: { name: { contains: q } } });
+    if (visibleFields.has("cliente")) or.push({ cliente: { name: { contains: q, mode: "insensitive" } } });
+    if (visibleFields.has("status")) or.push({ status: { label: { contains: q, mode: "insensitive" } } });
+    if (visibleFields.has("faturamento")) or.push({ faturamento: { label: { contains: q, mode: "insensitive" } } });
+    if (visibleFields.has("tipo")) or.push({ tipo: { label: { contains: q, mode: "insensitive" } } });
+    if (visibleFields.has("faturado")) or.push({ faturado: { label: { contains: q, mode: "insensitive" } } });
+    if (visibleFields.has("editadoPor")) or.push({ updatedBy: { name: { contains: q, mode: "insensitive" } } });
 
     // ID has no permission gate — always searchable, matching how it's always shown as the row key.
     if (/^\d+$/.test(q) && Number(q) <= INT4_MAX) or.push({ id: Number(q) });
