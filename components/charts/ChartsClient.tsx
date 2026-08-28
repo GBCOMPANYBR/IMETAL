@@ -29,7 +29,6 @@ export default function ChartsClient({ visibleFields }: Props) {
   const canValorTotal = visibleSet.has("valorTotal");
   const canCliente = visibleSet.has("cliente");
   const canData = visibleSet.has("data");
-  const canDataFaturamento = visibleSet.has("dataFaturamento");
   const canFaturado = visibleSet.has("faturado");
 
   const { options } = usePedidoOptions();
@@ -48,13 +47,11 @@ export default function ChartsClient({ visibleFields }: Props) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Pedidos faturados são analisados pela data em que foram faturados, não pela data do
-  // pedido — as duas coisas podem cair em períodos bem diferentes. Não faturados (ou Todos)
-  // usam a data do pedido, já que ainda não têm data de faturamento.
-  const effectiveDateField: "data" | "dataFaturamento" =
-    faturadoFilter === "SIM" && canDataFaturamento ? "dataFaturamento" : "data";
-  const canEffectiveDateField = effectiveDateField === "dataFaturamento" ? canDataFaturamento : canData;
-  const dateFieldLabel = effectiveDateField === "dataFaturamento" ? "Data de Faturamento" : "Data do Pedido";
+  // Sempre filtra pela data do pedido, nos 3 estados de Faturado — assim "Todos" sempre
+  // bate com a soma de "Faturados" + "Não faturados" no mesmo período.
+  const effectiveDateField = "data";
+  const canEffectiveDateField = canData;
+  const dateFieldLabel = "Data do Pedido";
 
   useEffect(() => {
     const filters: FiltersState = {};
