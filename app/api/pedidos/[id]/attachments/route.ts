@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/permissions";
+import { canAccessCliente, requireAuth } from "@/lib/permissions";
 import { saveAttachmentFile } from "@/lib/storage";
 import { parsePedidoId } from "@/lib/pedido-filters";
 
@@ -18,6 +18,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const pedidoId = parsePedidoId(id);
   if (pedidoId === null) {
+    return NextResponse.json([]);
+  }
+  const owner = await prisma.pedido.findUnique({ where: { id: pedidoId }, select: { clienteId: true } });
+  if (!owner || !canAccessCliente(user, owner.clienteId)) {
     return NextResponse.json([]);
   }
   const attachments = await prisma.attachment.findMany({
@@ -43,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
   const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { status: true } });
-  if (!pedido) {
+  if (!pedido || !canAccessCliente(user, pedido.clienteId)) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
   // Uploading is allowed for anyone who can see the anexos column — even a read-only user —

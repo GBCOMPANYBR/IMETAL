@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import { PEDIDO_FIELDS } from "@/lib/fields";
 
@@ -12,6 +12,13 @@ export interface UserRecord {
   canEdit: boolean;
   active: boolean;
   visibleFields: string[];
+  allClientes: boolean;
+  clienteIds: number[];
+}
+
+interface ClienteOption {
+  id: number;
+  name: string;
 }
 
 interface Props {
@@ -29,16 +36,35 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
   const [canEdit, setCanEdit] = useState(user?.canEdit ?? true);
   const [active, setActive] = useState(user?.active ?? true);
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set(user?.visibleFields ?? []));
+  const [allClientes, setAllClientes] = useState(user?.allClientes ?? true);
+  const [clienteIds, setClienteIds] = useState<Set<number>>(new Set(user?.clienteIds ?? []));
+  const [clientes, setClientes] = useState<ClienteOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const allSelected = visibleFields.size === PEDIDO_FIELDS.length;
+
+  useEffect(() => {
+    fetch("/api/options/clientes")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ClienteOption[]) => setClientes(data))
+      .catch(() => setClientes([]));
+  }, []);
 
   function toggleField(key: string) {
     setVisibleFields((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleCliente(id: number) {
+    setClienteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -54,6 +80,8 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
         canEdit: role === "ADMIN" ? true : canEdit,
         active,
         visibleFields: Array.from(visibleFields),
+        allClientes: role === "ADMIN" ? true : allClientes,
+        clienteIds: Array.from(clienteIds),
       };
       if (mode === "create") {
         payload.username = username;
@@ -145,6 +173,39 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
               </label>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-600">Empresas visíveis para este usuário</label>
+          {role === "ADMIN" ? (
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+              Administradores sempre veem pedidos de todas as empresas.
+            </p>
+          ) : (
+            <>
+              <label className="mb-2 flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={allClientes} onChange={(e) => setAllClientes(e.target.checked)} />
+                Ver pedidos de todas as empresas (uso interno IMETAL)
+              </label>
+              {!allClientes && (
+                <div className="rounded-lg border border-slate-200 p-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+                    {clientes.map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" checked={clienteIds.has(c.id)} onChange={() => toggleCliente(c.id)} />
+                        {c.name}
+                      </label>
+                    ))}
+                  </div>
+                  {clienteIds.size === 0 && (
+                    <p className="mt-2 text-xs text-amber-600">
+                      Selecione ao menos uma empresa — sem isso, este usuário não verá nenhum pedido.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

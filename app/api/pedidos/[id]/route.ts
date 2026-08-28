@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canEditPedidoWithStatus, requireAdmin, requireAuth } from "@/lib/permissions";
+import { canAccessCliente, canEditPedidoWithStatus, requireAdmin, requireAuth } from "@/lib/permissions";
 import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { findDisallowedKeys, pedidoUpdateSchema } from "@/lib/pedido-payload";
 import { deleteAttachmentFile } from "@/lib/storage";
@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
   const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: PEDIDO_INCLUDE });
-  if (!pedido) {
+  if (!pedido || !canAccessCliente(user, pedido.clienteId)) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
   return NextResponse.json(serializePedido(pedido, user));
@@ -36,7 +36,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const existing = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { status: true } });
-  if (!existing) {
+  if (!existing || !canAccessCliente(user, existing.clienteId)) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
 
@@ -65,6 +65,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });
   }
   const data = parsed.data;
+
+  if (data.clienteId !== undefined && !canAccessCliente(user, data.clienteId)) {
+    return NextResponse.json(
+      { error: "Seu usuário não tem permissão para mover este pedido para este Cliente." },
+      { status: 403 }
+    );
+  }
 
   const nextQtd = data.qtd ?? existing.qtd;
   const nextValorUnitario = data.valorUnitario ?? existing.valorUnitario;

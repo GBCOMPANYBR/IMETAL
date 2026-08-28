@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/permissions";
+import { canAccessCliente, requireAuth } from "@/lib/permissions";
 import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { parsePedidoQuery } from "@/lib/pedido-filters";
 import { findDisallowedKeys, pedidoCreateSchema } from "@/lib/pedido-payload";
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const { user } = auth;
 
   const { searchParams } = new URL(req.url);
-  const { where, orderBy, hasFilters: hasFiltersFromQuery, page } = parsePedidoQuery(searchParams, user.visibleFields);
+  const { where, orderBy, hasFilters: hasFiltersFromQuery, page } = parsePedidoQuery(searchParams, user);
   // Exporting always returns the full matching set, ignoring pagination — even with no filters applied.
   const isExport = searchParams.get("export") === "1";
   const hasFilters = hasFiltersFromQuery || isExport;
@@ -79,6 +79,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });
   }
   const data = parsed.data;
+
+  if (!canAccessCliente(user, data.clienteId)) {
+    return NextResponse.json(
+      { error: "Seu usuário não tem permissão para cadastrar pedidos para este Cliente." },
+      { status: 403 }
+    );
+  }
 
   const faturadoNao = await prisma.faturado.findFirst({ where: { label: "NÃO" } });
   if (!faturadoNao) {

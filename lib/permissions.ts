@@ -14,6 +14,10 @@ export interface AuthedUser {
   active: boolean;
   isAdmin: boolean;
   visibleFields: Set<string>;
+  /** true when the user may see Pedidos from every Cliente (always true for ADMIN). */
+  allClientes: boolean;
+  /** Only meaningful when allClientes is false — the Cliente ids this user may see. */
+  visibleClienteIds: Set<number>;
 }
 
 /**
@@ -27,7 +31,7 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
 
   const record = await prisma.user.findUnique({
     where: { id: session.userId },
-    include: { permissions: true },
+    include: { permissions: true, clientes: true },
   });
   if (!record || !record.active) return null;
 
@@ -47,6 +51,9 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
     active: record.active,
     isAdmin,
     visibleFields,
+    // Admins always see every Cliente, regardless of the stored restriction.
+    allClientes: isAdmin || record.allClientes,
+    visibleClienteIds: new Set<number>(record.clientes.map((c) => c.clienteId)),
   };
 }
 
@@ -71,4 +78,10 @@ export async function requireAdmin(): Promise<{ user: AuthedUser } | { error: Ne
 export function canEditPedidoWithStatus(user: AuthedUser, statusEditable: boolean): boolean {
   if (user.isAdmin) return true;
   return user.canEdit && statusEditable;
+}
+
+/** Whether the given user is allowed to see/act on a Pedido belonging to this Cliente. */
+export function canAccessCliente(user: AuthedUser, clienteId: number): boolean {
+  if (user.allClientes) return true;
+  return user.visibleClienteIds.has(clienteId);
 }

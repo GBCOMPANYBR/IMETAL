@@ -13,6 +13,8 @@ const createSchema = z.object({
   canEdit: z.boolean().default(true),
   active: z.boolean().default(true),
   visibleFields: z.array(z.string()).default([]),
+  allClientes: z.boolean().default(true),
+  clienteIds: z.array(z.number().int()).default([]),
 });
 
 function serializeUser(user: {
@@ -23,7 +25,9 @@ function serializeUser(user: {
   canEdit: boolean;
   active: boolean;
   createdAt: Date;
+  allClientes: boolean;
   permissions: { fieldKey: string; canView: boolean }[];
+  clientes: { clienteId: number }[];
 }) {
   return {
     id: user.id,
@@ -34,6 +38,8 @@ function serializeUser(user: {
     active: user.active,
     createdAt: user.createdAt,
     visibleFields: user.permissions.filter((p) => p.canView).map((p) => p.fieldKey),
+    allClientes: user.allClientes,
+    clienteIds: user.clientes.map((c) => c.clienteId),
   };
 }
 
@@ -42,7 +48,7 @@ export async function GET() {
   if ("error" in auth) return auth.error;
 
   const users = await prisma.user.findMany({
-    include: { permissions: true },
+    include: { permissions: true, clientes: true },
     orderBy: { username: "asc" },
   });
   return NextResponse.json(users.map(serializeUser));
@@ -61,6 +67,15 @@ export async function POST(req: Request) {
   const validFieldKeys = data.visibleFields.filter(isValidFieldKey);
   const passwordHash = await hashPassword(data.password);
 
+  // ADMIN always sees every Cliente — the restriction only makes sense for read-only/limited
+  // logins created for a specific company.
+  const allClientes = data.role === "ADMIN" ? true : data.allClientes;
+  const validClienteIds = allClientes
+    ? []
+    : (await prisma.cliente.findMany({ where: { id: { in: data.clienteIds } }, select: { id: true } })).map(
+        (c) => c.id
+      );
+
   try {
     const created = await prisma.user.create({
       data: {
@@ -70,11 +85,15 @@ export async function POST(req: Request) {
         role: data.role,
         canEdit: data.role === "ADMIN" ? true : data.canEdit,
         active: data.active,
+        allClientes,
         permissions: {
           create: validFieldKeys.map((fieldKey) => ({ fieldKey, canView: true })),
         },
+        clientes: {
+          create: validClienteIds.map((clienteId) => ({ clienteId })),
+        },
       },
-      include: { permissions: true },
+      include: { permissions: true, clientes: true },
     });
     return NextResponse.json(serializeUser(created), { status: 201 });
   } catch {

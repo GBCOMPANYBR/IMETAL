@@ -50,6 +50,7 @@ export default function UsuariosManager() {
                 <th className="px-4 py-2 text-left font-semibold text-slate-500">Perfil</th>
                 <th className="px-4 py-2 text-left font-semibold text-slate-500">Edição</th>
                 <th className="px-4 py-2 text-left font-semibold text-slate-500">Colunas visíveis</th>
+                <th className="px-4 py-2 text-left font-semibold text-slate-500">Empresas</th>
                 <th className="px-4 py-2 text-left font-semibold text-slate-500">Status</th>
                 <th className="px-4 py-2 text-right font-semibold text-slate-500">Ações</th>
               </tr>
@@ -66,6 +67,9 @@ export default function UsuariosManager() {
                   </td>
                   <td className="px-4 py-2 text-slate-600">{u.canEdit ? "Sim" : "Somente leitura"}</td>
                   <td className="px-4 py-2 text-slate-600">{u.visibleFields.length} / 19</td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {u.allClientes ? "Todas" : `${u.clienteIds.length} empresa(s)`}
+                  </td>
                   <td className="px-4 py-2">
                     <span className={`text-xs font-medium ${u.active ? "text-emerald-600" : "text-red-500"}`}>{u.active ? "Ativo" : "Inativo"}</span>
                   </td>

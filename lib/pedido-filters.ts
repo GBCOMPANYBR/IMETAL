@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { AuthedUser } from "@/lib/permissions";
 
 const FK_FIELDS: Record<string, string> = {
   status: "statusId",
@@ -58,9 +59,19 @@ function parseSearchedNumber(q: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: Set<string>): ParsedPedidoQuery {
+export function parsePedidoQuery(searchParams: URLSearchParams, user: AuthedUser): ParsedPedidoQuery {
+  const visibleFields = user.visibleFields;
   const and: Prisma.PedidoWhereInput[] = [];
   let hasFilters = false;
+
+  // Cliente-restricted users (e.g. a read-only login created for a single company) never see
+  // Pedidos outside their allowed Clientes — this is an access boundary, not a user-chosen
+  // filter, so it doesn't flip the "hasFilters" pagination mode below.
+  if (!user.allClientes) {
+    const ids = Array.from(user.visibleClienteIds);
+    // Empty on purpose (no Cliente granted yet) — match nothing rather than leaking every Pedido.
+    and.push({ clienteId: { in: ids.length > 0 ? ids : [-1] } });
+  }
 
   {
     const min = searchParams.get("f_id_min");

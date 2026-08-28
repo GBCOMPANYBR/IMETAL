@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, requireAuth } from "@/lib/permissions";
+import { canAccessCliente, requireAdmin, requireAuth } from "@/lib/permissions";
 import { deleteAttachmentFile, readAttachmentFile } from "@/lib/storage";
 import { parsePedidoId } from "@/lib/pedido-filters";
 
@@ -27,8 +27,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const attachment = await prisma.attachment.findFirst({
     where: { id: attId, pedidoId },
+    include: { pedido: { select: { clienteId: true } } },
   });
-  if (!attachment) {
+  if (!attachment || !canAccessCliente(user, attachment.pedido.clienteId)) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }
 

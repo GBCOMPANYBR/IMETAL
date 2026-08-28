@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const { user } = auth;
 
   const { searchParams } = new URL(req.url);
-  const { where } = parsePedidoQuery(searchParams, user.visibleFields);
+  const { where } = parsePedidoQuery(searchParams, user);
 
   const canValorTotal = user.visibleFields.has("valorTotal");
   const result: { geral: number | null; porCliente: unknown[] | null; porData: unknown[] | null } = {

@@ -12,6 +12,8 @@ const updateSchema = z.object({
   canEdit: z.boolean().optional(),
   active: z.boolean().optional(),
   visibleFields: z.array(z.string()).optional(),
+  allClientes: z.boolean().optional(),
+  clienteIds: z.array(z.number().int()).optional(),
 });
 
 function serializeUser(user: {
@@ -22,7 +24,9 @@ function serializeUser(user: {
   canEdit: boolean;
   active: boolean;
   createdAt: Date;
+  allClientes: boolean;
   permissions: { fieldKey: string; canView: boolean }[];
+  clientes: { clienteId: number }[];
 }) {
   return {
     id: user.id,
@@ -33,6 +37,8 @@ function serializeUser(user: {
     active: user.active,
     createdAt: user.createdAt,
     visibleFields: user.permissions.filter((p) => p.canView).map((p) => p.fieldKey),
+    allClientes: user.allClientes,
+    clienteIds: user.clientes.map((c) => c.clienteId),
   };
 }
 
@@ -75,8 +81,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (data.role !== undefined) updateData.role = data.role;
   if (data.canEdit !== undefined) updateData.canEdit = data.canEdit;
   if (data.active !== undefined) updateData.active = data.active;
+  if (data.allClientes !== undefined) updateData.allClientes = data.allClientes;
   const effectiveRole = data.role ?? target.role;
-  if (effectiveRole === "ADMIN") updateData.canEdit = true;
+  if (effectiveRole === "ADMIN") {
+    updateData.canEdit = true;
+    // ADMIN always sees every Cliente — the restriction only applies to non-admin logins.
+    updateData.allClientes = true;
+  }
   if (data.password) updateData.passwordHash = await hashPassword(data.password);
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -89,10 +100,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         });
       }
     }
+    if (data.clienteIds !== undefined && effectiveRole !== "ADMIN") {
+      await tx.userCliente.deleteMany({ where: { userId: targetId } });
+      const validClientes = await tx.cliente.findMany({ where: { id: { in: data.clienteIds } }, select: { id: true } });
+      if (validClientes.length > 0) {
+        await tx.userCliente.createMany({
+          data: validClientes.map((c) => ({ userId: targetId, clienteId: c.id })),
+        });
+      }
+    } else if (effectiveRole === "ADMIN") {
+      await tx.userCliente.deleteMany({ where: { userId: targetId } });
+    }
     return tx.user.update({
       where: { id: targetId },
       data: updateData,
-      include: { permissions: true },
+      include: { permissions: true, clientes: true },
     });
   });
 

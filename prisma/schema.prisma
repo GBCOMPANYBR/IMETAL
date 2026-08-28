@@ -19,9 +19,14 @@ model User {
   role         String   @default("USER")
   canEdit      Boolean  @default(true)
   active       Boolean  @default(true)
+  /// When true (default), the user sees Pedidos from every Cliente. When false, visibility is
+  /// restricted to the Clientes listed in `clientes` below — used to give a client company
+  /// (e.g. VEOLIA) a read-only login that only ever sees its own data.
+  allClientes  Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   permissions    FieldPermission[]
+  clientes       UserCliente[]
   pedidosCreated Pedido[]     @relation("PedidoCreatedBy")
   pedidosUpdated Pedido[]     @relation("PedidoUpdatedBy")
   attachments    Attachment[]
@@ -37,6 +42,17 @@ model FieldPermission {
   @@unique([userId, fieldKey])
 }
 
+/// Grants a User visibility into a specific Cliente's Pedidos, when `User.allClientes` is false.
+model UserCliente {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clienteId Int
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clienteId])
+}
+
 model Status {
   id       Int      @id @default(autoincrement())
   label    String   @unique
@@ -47,9 +63,10 @@ model Status {
 }
 
 model Cliente {
-  id      Int      @id @default(autoincrement())
-  name    String   @unique
+  id      Int           @id @default(autoincrement())
+  name    String        @unique
   pedidos Pedido[]
+  users   UserCliente[]
 }
 
 model Faturamento {
