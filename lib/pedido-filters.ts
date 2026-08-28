@@ -66,8 +66,8 @@ export function parsePedidoQuery(searchParams: URLSearchParams, visibleFields: S
     const min = searchParams.get("f_id_min");
     const max = searchParams.get("f_id_max");
     const range: Record<string, number> = {};
-    if (min !== null && min !== "" && !Number.isNaN(Number(min)) && Number(min) <= INT4_MAX) range.gte = Number(min);
-    if (max !== null && max !== "" && !Number.isNaN(Number(max)) && Number(max) <= INT4_MAX) range.lte = Number(max);
+    if (min !== null && min !== "" && !Number.isNaN(Number(min)) && Number(min) >= INT4_MIN && Number(min) <= INT4_MAX) range.gte = Number(min);
+    if (max !== null && max !== "" && !Number.isNaN(Number(max)) && Number(max) >= INT4_MIN && Number(max) <= INT4_MAX) range.lte = Number(max);
     if (Object.keys(range).length > 0) {
       and.push({ id: range });
       hasFilters = true;
