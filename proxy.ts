@@ -44,7 +44,9 @@ export const config = {
      * Match everything except:
      * - _next/static, _next/image (build assets)
      * - favicon.ico, icon.png, apple-icon.png, logo.png and other public files
+     * - robots.txt (precisa ficar público mesmo sem login, senão o Google não
+     *   consegue ler o "Disallow: /" e não bloqueia a indexação como deveria)
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|logo.png).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|logo.png|robots.txt).*)",
   ],
 };
