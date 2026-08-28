@@ -28,7 +28,10 @@ function LoginForm() {
         setError(body.error ?? "Não foi possível entrar.");
         return;
       }
-      const next = searchParams.get("next") ?? "/";
+      // Only ever follow an internal path — a full/protocol-relative URL here would let
+      // ?next= redirect the browser off-site right after a real login (phishing setup).
+      const nextParam = searchParams.get("next") ?? "/";
+      const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
       router.push(next);
       router.refresh();
     } finally {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/permissions";
 import { saveAttachmentFile } from "@/lib/storage";
+import { parsePedidoId } from "@/lib/pedido-filters";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -15,8 +16,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id } = await params;
+  const pedidoId = parsePedidoId(id);
+  if (pedidoId === null) {
+    return NextResponse.json([]);
+  }
   const attachments = await prisma.attachment.findMany({
-    where: { pedidoId: Number(id) },
+    where: { pedidoId },
     orderBy: { uploadedAt: "desc" },
     select: { id: true, filename: true, mimeType: true, size: true, uploadedAt: true, uploadedBy: { select: { name: true } } },
   });
@@ -33,7 +38,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id } = await params;
-  const pedidoId = Number(id);
+  const pedidoId = parsePedidoId(id);
+  if (pedidoId === null) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
   const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { status: true } });
   if (!pedido) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });

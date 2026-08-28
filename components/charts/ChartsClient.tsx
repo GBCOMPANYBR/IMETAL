@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -46,6 +46,9 @@ export default function ChartsClient({ visibleFields }: Props) {
     porData: null,
   });
   const [loading, setLoading] = useState(true);
+  // Guards against a slower, stale request resolving after a newer one and overwriting
+  // the fresher chart data on screen.
+  const loadSeq = useRef(0);
 
   // Sempre filtra pela data do pedido, nos 3 estados de Faturado — assim "Todos" sempre
   // bate com a soma de "Faturados" + "Não faturados" no mesmo período.
@@ -62,13 +65,18 @@ export default function ChartsClient({ visibleFields }: Props) {
       if (target) filters.faturado = { type: "fk", ids: [target.id] };
     }
 
+    const seq = ++loadSeq.current;
     setLoading(true);
     const params = buildPedidosQueryParams({ filters, quickSearch: "" });
     params.set("dateField", effectiveDateField);
     fetch(`/api/pedidos/chart-data?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : { geral: null, porCliente: null, porData: null }))
-      .then(setChartData)
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (seq === loadSeq.current) setChartData(data);
+      })
+      .finally(() => {
+        if (seq === loadSeq.current) setLoading(false);
+      });
   }, [clienteIds, dataFrom, dataTo, faturadoFilter, effectiveDateField, options.faturado]);
 
   if (!canValorTotal) {

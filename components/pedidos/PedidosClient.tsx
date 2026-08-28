@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PEDIDO_FIELDS, type FieldDef } from "@/lib/fields";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { usePedidoOptions } from "@/lib/useOptions";
@@ -82,6 +82,9 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   const [exporting, setExporting] = useState(false);
 
   const canBulkEdit = isAdmin || canEdit;
+  // Guards against a slower, stale request (e.g. from a filter the user already changed
+  // away from) resolving after a newer one and overwriting the fresher results on screen.
+  const loadSeq = useRef(0);
 
   useEffect(() => {
     const t = setTimeout(() => setQuickSearch(quickSearchInput), 350);
@@ -93,9 +96,11 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   }, [filters, quickSearch]);
 
   async function load() {
+    const seq = ++loadSeq.current;
     setLoading(true);
     const params = buildPedidosQueryParams({ filters, quickSearch, sort, dir, page });
     const res = await fetch(`/api/pedidos?${params.toString()}`);
+    if (seq !== loadSeq.current) return; // a newer load() started while this one was in flight
     if (res.ok) {
       const body = await res.json();
       setItems(body.items);
@@ -481,7 +486,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
       {attachmentsFor && (
         <AttachmentsModal
           pedidoId={attachmentsFor.id}
-          canUpload={isAdmin || attachmentsFor.status?.editable !== false}
+          canUpload={isAdmin || attachmentsFor.statusEditable !== false}
           isAdmin={isAdmin}
           onClose={() => setAttachmentsFor(null)}
           onChanged={load}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireAuth } from "@/lib/permissions";
 import { deleteAttachmentFile, readAttachmentFile } from "@/lib/storage";
+import { parsePedidoId } from "@/lib/pedido-filters";
 
 // Only these types are safe to render inline in the browser. Anything else (in particular
 // text/html and image/svg+xml, which can carry executable script) is forced to download —
@@ -19,8 +20,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id, attachmentId } = await params;
+  const pedidoId = parsePedidoId(id);
+  const attId = parsePedidoId(attachmentId);
+  if (pedidoId === null || attId === null) {
+    return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
+  }
   const attachment = await prisma.attachment.findFirst({
-    where: { id: Number(attachmentId), pedidoId: Number(id) },
+    where: { id: attId, pedidoId },
   });
   if (!attachment) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
@@ -46,14 +52,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if ("error" in auth) return auth.error;
 
   const { id, attachmentId } = await params;
-  const pedidoId = Number(id);
+  const pedidoId = parsePedidoId(id);
+  const attId = parsePedidoId(attachmentId);
+  if (pedidoId === null || attId === null) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
 
   const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId } });
   if (!pedido) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
 
-  const attachment = await prisma.attachment.findFirst({ where: { id: Number(attachmentId), pedidoId } });
+  const attachment = await prisma.attachment.findFirst({ where: { id: attId, pedidoId } });
   if (!attachment) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }

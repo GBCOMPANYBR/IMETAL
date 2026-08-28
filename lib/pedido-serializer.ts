@@ -26,6 +26,9 @@ export function serializePedido(pedido: PedidoWithRelations, user: AuthedUser) {
   const out: Record<string, unknown> = {
     id: pedido.id,
     canEdit: editable,
+    // Always present (unlike `status` below, which is gated by visibleFields) — the Anexos
+    // modal needs to know if uploads are allowed even for users who can't see the status field.
+    statusEditable: pedido.status.editable,
   };
 
   if (can("status")) {

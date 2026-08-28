@@ -8,9 +8,16 @@ const FK_FIELDS: Record<string, string> = {
   faturado: "faturadoId",
 };
 
-// Postgres int4 bound — "id" is an Int column, so anything above this overflows and crashes the query
-// (e.g. a Pedido de Compra number typed into quick search, which is often 10 digits).
+// Postgres int4 bounds — "id" is an Int column, so anything outside this range overflows and
+// crashes the query (e.g. a Pedido de Compra number typed into quick search, which is often 10 digits).
 const INT4_MAX = 2147483647;
+const INT4_MIN = -2147483648;
+
+/** Validates a route param as a Pedido id — returns null instead of a value Postgres would reject with an overflow. */
+export function parsePedidoId(idParam: string): number | null {
+  const id = Number(idParam);
+  return Number.isInteger(id) && id >= INT4_MIN && id <= INT4_MAX ? id : null;
+}
 
 const TEXT_FIELDS = ["pedidoCompra", "codigo", "descricao", "ncm", "pagamento", "observacao", "nf", "pdv"];
 const NUMBER_FIELDS = ["qtd", "valorUnitario", "valorTotal"];
@@ -33,11 +40,20 @@ function endOfDay(date: Date): Date {
   return d;
 }
 
-/** Parses a free-typed number that may use Brazilian formatting ("1.500,50" or "1500,5"), or null if it isn't one. */
+/** Parses a free-typed number that may use Brazilian formatting ("1.500,50", "1500,5" or "1.500"), or null if it isn't one. */
 function parseSearchedNumber(q: string): number | null {
   const cleaned = q.trim();
   if (!/^-?[\d.,]+$/.test(cleaned)) return null;
-  const normalized = cleaned.includes(",") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
+  let normalized: string;
+  if (cleaned.includes(",")) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    // Pure thousands grouping with no decimal part, e.g. "1.500" or "12.345.678" — without
+    // this, Number("1.500") would silently parse as 1.5 instead of 1500.
+    normalized = cleaned.replace(/\./g, "");
+  } else {
+    normalized = cleaned;
+  }
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }

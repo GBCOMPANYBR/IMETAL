@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { makeOptionListRoutes } from "@/lib/option-list";
 
-const routes = makeOptionListRoutes(prisma.faturado, "Faturado", "label");
+const routes = makeOptionListRoutes(prisma.faturado, "Faturado", "label", ["SIM", "NÃO"]);
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

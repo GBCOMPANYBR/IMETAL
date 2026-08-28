@@ -5,6 +5,7 @@ import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { findDisallowedKeys, pedidoUpdateSchema } from "@/lib/pedido-payload";
 import { deleteAttachmentFile } from "@/lib/storage";
 import { runWithFkErrorHandling } from "@/lib/prisma-errors";
+import { parsePedidoId } from "@/lib/pedido-filters";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth();
@@ -12,7 +13,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { user } = auth;
 
   const { id } = await params;
-  const pedido = await prisma.pedido.findUnique({ where: { id: Number(id) }, include: PEDIDO_INCLUDE });
+  const pedidoId = parsePedidoId(id);
+  if (pedidoId === null) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
+  const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: PEDIDO_INCLUDE });
   if (!pedido) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
@@ -25,7 +30,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { user } = auth;
 
   const { id } = await params;
-  const pedidoId = Number(id);
+  const pedidoId = parsePedidoId(id);
+  if (pedidoId === null) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
 
   const existing = await prisma.pedido.findUnique({ where: { id: pedidoId }, include: { status: true } });
   if (!existing) {
@@ -98,7 +106,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
-  const pedidoId = Number(id);
+  const pedidoId = parsePedidoId(id);
+  if (pedidoId === null) {
+    return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
+  }
 
   const pedido = await prisma.pedido.findUnique({
     where: { id: pedidoId },

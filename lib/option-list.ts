@@ -4,6 +4,7 @@ import { requireAdmin, requireAuth } from "@/lib/permissions";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface Delegate {
   findMany: (args?: any) => Promise<any[]>;
+  findUnique: (args: any) => Promise<any>;
   create: (args: any) => Promise<any>;
   update: (args: any) => Promise<any>;
   delete: (args: any) => Promise<any>;
@@ -14,8 +15,18 @@ interface Delegate {
  * (Faturamento, Tipo, Faturado, Cliente). Only ADMIN can create/update/delete;
  * any authenticated user can list, since these values populate dropdowns
  * across the app.
+ *
+ * `protectedValues` guards records whose current value is in that list against
+ * rename/delete — for Faturado, "SIM"/"NÃO" are matched by exact string elsewhere
+ * (pedido creation defaults new orders to "NÃO", the Gráficos filter looks up
+ * "SIM"/"NÃO" by label), so renaming or deleting either one silently breaks those.
  */
-export function makeOptionListRoutes(delegate: Delegate, entityLabel: string, fieldName: "label" | "name" = "label") {
+export function makeOptionListRoutes(
+  delegate: Delegate,
+  entityLabel: string,
+  fieldName: "label" | "name" = "label",
+  protectedValues: string[] = []
+) {
   async function list() {
     const auth = await requireAuth();
     if ("error" in auth) return auth.error;
@@ -50,6 +61,15 @@ export function makeOptionListRoutes(delegate: Delegate, entityLabel: string, fi
     if (!value) {
       return NextResponse.json({ error: "Informe um nome." }, { status: 400 });
     }
+    if (protectedValues.length > 0) {
+      const current = await delegate.findUnique({ where: { id } });
+      if (current && protectedValues.includes(current[fieldName]) && value !== current[fieldName]) {
+        return NextResponse.json(
+          { error: `"${current[fieldName]}" é usado internamente pelo sistema e não pode ser renomeado.` },
+          { status: 409 }
+        );
+      }
+    }
     try {
       const updated = await delegate.update({ where: { id }, data: { [fieldName]: value } });
       return NextResponse.json(updated);
@@ -61,6 +81,15 @@ export function makeOptionListRoutes(delegate: Delegate, entityLabel: string, fi
   async function remove(id: number) {
     const auth = await requireAdmin();
     if ("error" in auth) return auth.error;
+    if (protectedValues.length > 0) {
+      const current = await delegate.findUnique({ where: { id } });
+      if (current && protectedValues.includes(current[fieldName])) {
+        return NextResponse.json(
+          { error: `"${current[fieldName]}" é usado internamente pelo sistema e não pode ser excluído.` },
+          { status: 409 }
+        );
+      }
+    }
     try {
       await delegate.delete({ where: { id } });
       return NextResponse.json({ ok: true });
