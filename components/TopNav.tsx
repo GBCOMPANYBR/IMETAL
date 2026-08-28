@@ -8,13 +8,14 @@ interface Props {
   name: string;
   role: "ADMIN" | "USER";
   isAdmin: boolean;
+  canViewGraficos: boolean;
 }
 
 const LINK_CLS = "rounded-lg px-3 py-1.5 text-sm font-medium transition";
 const ACTIVE_CLS = "bg-brand text-white";
 const INACTIVE_CLS = "text-slate-600 hover:bg-slate-100";
 
-export default function TopNav({ name, role, isAdmin }: Props) {
+export default function TopNav({ name, role, isAdmin, canViewGraficos }: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -34,9 +35,11 @@ export default function TopNav({ name, role, isAdmin }: Props) {
           <Link href="/" className={`${LINK_CLS} ${isActive("/") ? ACTIVE_CLS : INACTIVE_CLS}`}>
             Pedidos
           </Link>
-          <Link href="/graficos" className={`${LINK_CLS} ${isActive("/graficos") ? ACTIVE_CLS : INACTIVE_CLS}`}>
-            Gráficos
-          </Link>
+          {canViewGraficos && (
+            <Link href="/graficos" className={`${LINK_CLS} ${isActive("/graficos") ? ACTIVE_CLS : INACTIVE_CLS}`}>
+              Gráficos
+            </Link>
+          )}
           {isAdmin && (
             <>
               <span className="mx-1 h-5 w-px bg-slate-200" />

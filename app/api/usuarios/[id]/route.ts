@@ -14,6 +14,7 @@ const updateSchema = z.object({
   visibleFields: z.array(z.string()).optional(),
   allClientes: z.boolean().optional(),
   clienteIds: z.array(z.number().int()).optional(),
+  canViewGraficos: z.boolean().optional(),
 });
 
 function serializeUser(user: {
@@ -25,6 +26,7 @@ function serializeUser(user: {
   active: boolean;
   createdAt: Date;
   allClientes: boolean;
+  canViewGraficos: boolean;
   permissions: { fieldKey: string; canView: boolean }[];
   clientes: { clienteId: number }[];
 }) {
@@ -39,6 +41,7 @@ function serializeUser(user: {
     visibleFields: user.permissions.filter((p) => p.canView).map((p) => p.fieldKey),
     allClientes: user.allClientes,
     clienteIds: user.clientes.map((c) => c.clienteId),
+    canViewGraficos: user.canViewGraficos,
   };
 }
 
@@ -82,11 +85,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (data.canEdit !== undefined) updateData.canEdit = data.canEdit;
   if (data.active !== undefined) updateData.active = data.active;
   if (data.allClientes !== undefined) updateData.allClientes = data.allClientes;
+  if (data.canViewGraficos !== undefined) updateData.canViewGraficos = data.canViewGraficos;
   const effectiveRole = data.role ?? target.role;
   if (effectiveRole === "ADMIN") {
     updateData.canEdit = true;
-    // ADMIN always sees every Cliente — the restriction only applies to non-admin logins.
+    // ADMIN always sees every Cliente and always has Gráficos access — these restrictions only
+    // apply to non-admin logins.
     updateData.allClientes = true;
+    updateData.canViewGraficos = true;
   }
   if (data.password) updateData.passwordHash = await hashPassword(data.password);
 

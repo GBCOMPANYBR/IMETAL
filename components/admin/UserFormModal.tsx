@@ -14,6 +14,7 @@ export interface UserRecord {
   visibleFields: string[];
   allClientes: boolean;
   clienteIds: number[];
+  canViewGraficos: boolean;
 }
 
 interface ClienteOption {
@@ -39,6 +40,7 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
   const [allClientes, setAllClientes] = useState(user?.allClientes ?? true);
   const [clienteIds, setClienteIds] = useState<Set<number>>(new Set(user?.clienteIds ?? []));
   const [clientes, setClientes] = useState<ClienteOption[]>([]);
+  const [canViewGraficos, setCanViewGraficos] = useState(user?.canViewGraficos ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +84,7 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
         visibleFields: Array.from(visibleFields),
         allClientes: role === "ADMIN" ? true : allClientes,
         clienteIds: Array.from(clienteIds),
+        canViewGraficos: role === "ADMIN" ? true : canViewGraficos,
       };
       if (mode === "create") {
         payload.username = username;
@@ -151,6 +154,15 @@ export default function UserFormModal({ mode, user, onClose, onSaved }: Props) {
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             Usuário ativo
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={role === "ADMIN" ? true : canViewGraficos}
+              disabled={role === "ADMIN"}
+              onChange={(e) => setCanViewGraficos(e.target.checked)}
+            />
+            Pode acessar Gráficos
           </label>
         </div>
 

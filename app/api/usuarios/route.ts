@@ -15,6 +15,7 @@ const createSchema = z.object({
   visibleFields: z.array(z.string()).default([]),
   allClientes: z.boolean().default(true),
   clienteIds: z.array(z.number().int()).default([]),
+  canViewGraficos: z.boolean().default(true),
 });
 
 function serializeUser(user: {
@@ -26,6 +27,7 @@ function serializeUser(user: {
   active: boolean;
   createdAt: Date;
   allClientes: boolean;
+  canViewGraficos: boolean;
   permissions: { fieldKey: string; canView: boolean }[];
   clientes: { clienteId: number }[];
 }) {
@@ -40,6 +42,7 @@ function serializeUser(user: {
     visibleFields: user.permissions.filter((p) => p.canView).map((p) => p.fieldKey),
     allClientes: user.allClientes,
     clienteIds: user.clientes.map((c) => c.clienteId),
+    canViewGraficos: user.canViewGraficos,
   };
 }
 
@@ -86,6 +89,7 @@ export async function POST(req: Request) {
         canEdit: data.role === "ADMIN" ? true : data.canEdit,
         active: data.active,
         allClientes,
+        canViewGraficos: data.role === "ADMIN" ? true : data.canViewGraficos,
         permissions: {
           create: validFieldKeys.map((fieldKey) => ({ fieldKey, canView: true })),
         },

@@ -8,6 +8,10 @@ export async function GET(req: Request) {
   if ("error" in auth) return auth.error;
   const { user } = auth;
 
+  if (!user.canViewGraficos) {
+    return NextResponse.json({ error: "Seu usuário não tem permissão para acessar os Gráficos." }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const { where } = parsePedidoQuery(searchParams, user);
 

@@ -11,24 +11,28 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique
-  passwordHash String
-  name         String
+  id              Int      @id @default(autoincrement())
+  username        String   @unique
+  passwordHash    String
+  name            String
   /// "ADMIN" | "USER" — SQLite has no native enum type, validated at the application layer.
-  role         String   @default("USER")
-  canEdit      Boolean  @default(true)
-  active       Boolean  @default(true)
+  role            String   @default("USER")
+  canEdit         Boolean  @default(true)
+  active          Boolean  @default(true)
   /// When true (default), the user sees Pedidos from every Cliente. When false, visibility is
   /// restricted to the Clientes listed in `clientes` below — used to give a client company
   /// (e.g. VEOLIA) a read-only login that only ever sees its own data.
-  allClientes  Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  allClientes     Boolean  @default(true)
+  /// Whether this user can open the Gráficos page at all — unrelated to which fields they can
+  /// see; a user with no chart access never sees the nav link, and hitting /graficos directly
+  /// shows a permission message instead of the page.
+  canViewGraficos Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
   permissions    FieldPermission[]
   clientes       UserCliente[]
-  pedidosCreated Pedido[]     @relation("PedidoCreatedBy")
-  pedidosUpdated Pedido[]     @relation("PedidoUpdatedBy")
+  pedidosCreated Pedido[]          @relation("PedidoCreatedBy")
+  pedidosUpdated Pedido[]          @relation("PedidoUpdatedBy")
   attachments    Attachment[]
 }
 

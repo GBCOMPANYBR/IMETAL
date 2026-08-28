@@ -18,6 +18,8 @@ export interface AuthedUser {
   allClientes: boolean;
   /** Only meaningful when allClientes is false — the Cliente ids this user may see. */
   visibleClienteIds: Set<number>;
+  /** Whether the user may open the Gráficos page at all (always true for ADMIN). */
+  canViewGraficos: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function getCurrentUser(): Promise<AuthedUser | null> {
     // Admins always see every Cliente, regardless of the stored restriction.
     allClientes: isAdmin || record.allClientes,
     visibleClienteIds: new Set<number>(record.clientes.map((c) => c.clienteId)),
+    canViewGraficos: isAdmin || record.canViewGraficos,
   };
 }
 

@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
-      <TopNav name={user.name} role={user.role} isAdmin={user.isAdmin} />
+      <TopNav name={user.name} role={user.role} isAdmin={user.isAdmin} canViewGraficos={user.canViewGraficos} />
       <main className="mx-auto max-w-[1600px] px-4 py-6">{children}</main>
     </div>
   );
