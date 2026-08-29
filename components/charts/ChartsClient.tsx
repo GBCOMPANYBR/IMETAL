@@ -29,6 +29,7 @@ export default function ChartsClient({ visibleFields }: Props) {
   const canValorTotal = visibleSet.has("valorTotal");
   const canCliente = visibleSet.has("cliente");
   const canData = visibleSet.has("data");
+  const canDataFaturamento = visibleSet.has("dataFaturamento");
   const canFaturado = visibleSet.has("faturado");
 
   const { options } = usePedidoOptions();
@@ -36,6 +37,12 @@ export default function ChartsClient({ visibleFields }: Props) {
   const [dataFrom, setDataFrom] = useState("");
   const [dataTo, setDataTo] = useState("");
   const [faturadoFilter, setFaturadoFilter] = useState<FaturadoFilter>("TODOS");
+  // Só importa quando faturadoFilter === "SIM" — "Todos" e "Não faturados" sempre usam a data
+  // do pedido (Não faturados nem tem dataFaturamento preenchida). "Faturados" pode responder
+  // duas perguntas diferentes: "pedidos feitos no período que já foram faturados" (Data do
+  // Pedido — soma com Não faturados do mesmo período) ou "quanto foi faturado no período"
+  // (Data de Faturamento — não soma com os outros dois, é uma pergunta diferente).
+  const [faturadosDateField, setFaturadosDateField] = useState<"data" | "dataFaturamento">("data");
   const [chartData, setChartData] = useState<{
     geral: number | null;
     porCliente: { cliente: string; total: number }[] | null;
@@ -50,11 +57,12 @@ export default function ChartsClient({ visibleFields }: Props) {
   // the fresher chart data on screen.
   const loadSeq = useRef(0);
 
-  // Sempre filtra pela data do pedido, nos 3 estados de Faturado — assim "Todos" sempre
-  // bate com a soma de "Faturados" + "Não faturados" no mesmo período.
-  const effectiveDateField = "data";
-  const canEffectiveDateField = canData;
-  const dateFieldLabel = "Data do Pedido";
+  const effectiveDateField: "data" | "dataFaturamento" =
+    faturadoFilter === "SIM" && faturadosDateField === "dataFaturamento" && canDataFaturamento
+      ? "dataFaturamento"
+      : "data";
+  const canEffectiveDateField = effectiveDateField === "dataFaturamento" ? canDataFaturamento : canData;
+  const dateFieldLabel = effectiveDateField === "dataFaturamento" ? "Data de Faturamento" : "Data do Pedido";
 
   useEffect(() => {
     const filters: FiltersState = {};
@@ -108,6 +116,24 @@ export default function ChartsClient({ visibleFields }: Props) {
             </div>
           </div>
         )}
+        {canFaturado && faturadoFilter === "SIM" && canDataFaturamento && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Faturados por</label>
+            <div className="flex gap-1 rounded-lg border border-slate-300 p-0.5">
+              {(["data", "dataFaturamento"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setFaturadosDateField(opt)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                    faturadosDateField === opt ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
+                  {opt === "data" ? "Data do Pedido" : "Data de Faturamento"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {canEffectiveDateField && (
           <div className="flex gap-2">
             <div>
@@ -144,6 +170,7 @@ export default function ChartsClient({ visibleFields }: Props) {
               setDataFrom("");
               setDataTo("");
               setFaturadoFilter("TODOS");
+              setFaturadosDateField("data");
             }}
             className="text-sm font-medium text-slate-400 hover:text-slate-600"
           >
@@ -163,6 +190,12 @@ export default function ChartsClient({ visibleFields }: Props) {
                 {faturadoFilter !== "TODOS" && (faturadoFilter === "SIM" ? " (faturados)" : " (não faturados)")}
               </h2>
               <p className="mt-1 text-3xl font-bold text-slate-800">{formatCurrency(chartData.geral)}</p>
+              {effectiveDateField === "dataFaturamento" && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Filtrando por Data de Faturamento — este valor não soma com "Não faturados", que usa a Data do
+                  Pedido.
+                </p>
+              )}
             </div>
           )}
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
