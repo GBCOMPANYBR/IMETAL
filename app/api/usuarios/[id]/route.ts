@@ -5,17 +5,26 @@ import { requireAdmin } from "@/lib/permissions";
 import { hashPassword } from "@/lib/auth";
 import { isValidFieldKey } from "@/lib/fields";
 
-const updateSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  password: z.string().min(8, "Senha deve ter ao menos 8 caracteres.").optional().or(z.literal("")),
-  role: z.enum(["ADMIN", "USER"]).optional(),
-  canEdit: z.boolean().optional(),
-  active: z.boolean().optional(),
-  visibleFields: z.array(z.string()).optional(),
-  allClientes: z.boolean().optional(),
-  clienteIds: z.array(z.number().int()).optional(),
-  canViewGraficos: z.boolean().optional(),
-});
+const updateSchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    password: z.string().min(8, "Senha deve ter ao menos 8 caracteres.").optional().or(z.literal("")),
+    role: z.enum(["ADMIN", "USER"]).optional(),
+    canEdit: z.boolean().optional(),
+    active: z.boolean().optional(),
+    visibleFields: z.array(z.string()).optional(),
+    allClientes: z.boolean().optional(),
+    clienteIds: z.array(z.number().int()).optional(),
+    canViewGraficos: z.boolean().optional(),
+  })
+  // The handler below only resyncs UserCliente rows when clienteIds is present — sending
+  // allClientes alone would silently leave stale/empty Cliente grants in place while flipping
+  // the flag, hiding every Pedido from the user with no indication why. The shipped UI always
+  // sends both together, so this only guards against a future/external caller doing it wrong.
+  .refine((data) => data.allClientes === undefined || data.clienteIds !== undefined, {
+    message: "clienteIds deve ser enviado junto de allClientes.",
+    path: ["clienteIds"],
+  });
 
 function serializeUser(user: {
   id: number;

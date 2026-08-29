@@ -16,18 +16,17 @@ export async function GET(req: Request) {
   const { where } = parsePedidoQuery(searchParams, user);
 
   const canValorTotal = user.visibleFields.has("valorTotal");
-  const result: { geral: number | null; porCliente: unknown[] | null; porData: unknown[] | null } = {
-    geral: null,
-    porCliente: null,
-    porData: null,
-  };
+  const dateFieldParam = searchParams.get("dateField");
+  const dateField = dateFieldParam === "dataFaturamento" ? "dataFaturamento" : "data";
 
-  if (canValorTotal) {
+  async function loadGeral(): Promise<number | null> {
+    if (!canValorTotal) return null;
     const totals = await prisma.pedido.aggregate({ where, _sum: { valorTotal: true } });
-    result.geral = totals._sum.valorTotal ?? 0;
+    return totals._sum.valorTotal ?? 0;
   }
 
-  if (canValorTotal && user.visibleFields.has("cliente")) {
+  async function loadPorCliente() {
+    if (!canValorTotal || !user.visibleFields.has("cliente")) return null;
     const grouped = await prisma.pedido.groupBy({
       by: ["clienteId"],
       where,
@@ -37,7 +36,7 @@ export async function GET(req: Request) {
       where: { id: { in: grouped.map((g) => g.clienteId) } },
     });
     const nameById = new Map(clientes.map((c) => [c.id, c.name]));
-    result.porCliente = grouped
+    return grouped
       .map((g) => ({
         clienteId: g.clienteId,
         cliente: nameById.get(g.clienteId) ?? "—",
@@ -46,10 +45,8 @@ export async function GET(req: Request) {
       .sort((a, b) => b.total - a.total);
   }
 
-  const dateFieldParam = searchParams.get("dateField");
-  const dateField = dateFieldParam === "dataFaturamento" ? "dataFaturamento" : "data";
-
-  if (canValorTotal && user.visibleFields.has(dateField)) {
+  async function loadPorData() {
+    if (!canValorTotal || !user.visibleFields.has(dateField)) return null;
     let porData: { data: Date | null; total: number }[];
     if (dateField === "dataFaturamento") {
       const grouped = await prisma.pedido.groupBy({ by: ["dataFaturamento"], where, _sum: { valorTotal: true } });
@@ -58,10 +55,14 @@ export async function GET(req: Request) {
       const grouped = await prisma.pedido.groupBy({ by: ["data"], where, _sum: { valorTotal: true } });
       porData = grouped.map((g) => ({ data: g.data, total: g._sum.valorTotal ?? 0 }));
     }
-    result.porData = porData
+    return porData
       .filter((g) => g.data !== null)
       .sort((a, b) => new Date(a.data as Date).getTime() - new Date(b.data as Date).getTime());
   }
 
-  return NextResponse.json(result);
+  // The three aggregates are independent of each other — running them concurrently instead of
+  // one after another means the page waits on the slowest single query, not their sum.
+  const [geral, porCliente, porData] = await Promise.all([loadGeral(), loadPorCliente(), loadPorData()]);
+
+  return NextResponse.json({ geral, porCliente, porData });
 }

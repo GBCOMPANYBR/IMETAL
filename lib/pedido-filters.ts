@@ -35,9 +35,13 @@ export interface ParsedPedidoQuery {
   page: number;
 }
 
+// Uses UTC explicitly — `data`/`dataFaturamento` are always stored as UTC midnight (date-only
+// values), and the rest of the codebase treats dates as UTC (see formatDate/toDateInputValue in
+// lib/format.ts). setHours (local time) would shift this boundary whenever the server process
+// runs in a non-UTC timezone.
 function endOfDay(date: Date): Date {
   const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
+  d.setUTCHours(23, 59, 59, 999);
   return d;
 }
 
@@ -112,8 +116,12 @@ export function parsePedidoQuery(searchParams: URLSearchParams, user: AuthedUser
     const min = searchParams.get(`f_${fieldKey}_min`);
     const max = searchParams.get(`f_${fieldKey}_max`);
     const range: Record<string, number> = {};
-    if (min !== null && min !== "" && !Number.isNaN(Number(min))) range.gte = Number(min);
-    if (max !== null && max !== "" && !Number.isNaN(Number(max))) range.lte = Number(max);
+    // Number.isFinite (not just isNaN) — Prisma rejects Infinity/-Infinity for a Float column as
+    // an invalid argument, which throws an unhandled PrismaClientValidationError and 500s the
+    // route. Number("1e400") or Number("Infinity") both parse to Infinity in JS, so a value like
+    // that typed into a Valor filter must be dropped here rather than passed through.
+    if (min !== null && min !== "" && Number.isFinite(Number(min))) range.gte = Number(min);
+    if (max !== null && max !== "" && Number.isFinite(Number(max))) range.lte = Number(max);
     if (Object.keys(range).length > 0) {
       and.push({ [fieldKey]: range } as Prisma.PedidoWhereInput);
       hasFilters = true;
