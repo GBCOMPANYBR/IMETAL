@@ -3,21 +3,25 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { useValuesVisibility } from "@/components/ValuesVisibilityProvider";
 
 interface Props {
   name: string;
   role: "ADMIN" | "USER";
   isAdmin: boolean;
   canViewGraficos: boolean;
+  /** Se este usuário tem algum campo de valor (Valor Unitário/Total) visível — só nesse caso faz sentido oferecer o toggle de ocultar. */
+  canSeeValores: boolean;
 }
 
 const LINK_CLS = "rounded-lg px-3 py-1.5 text-sm font-medium transition";
 const ACTIVE_CLS = "bg-brand text-white";
 const INACTIVE_CLS = "text-slate-600 hover:bg-slate-100";
 
-export default function TopNav({ name, role, isAdmin, canViewGraficos }: Props) {
+export default function TopNav({ name, role, isAdmin, canViewGraficos, canSeeValores }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const { hidden, toggle } = useValuesVisibility();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -59,6 +63,15 @@ export default function TopNav({ name, role, isAdmin, canViewGraficos }: Props) 
           )}
         </nav>
         <div className="flex items-center gap-3">
+          {canSeeValores && (
+            <button
+              onClick={toggle}
+              title={hidden ? "Mostrar valores" : "Ocultar valores"}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+            >
+              {hidden ? "🙈 Valores ocultos" : "👁 Valores visíveis"}
+            </button>
+          )}
           <div className="text-right leading-tight">
             <div className="text-sm font-medium text-slate-700">{name}</div>
             <div className="text-xs text-slate-400">{role === "ADMIN" ? "Administrador" : "Usuário"}</div>

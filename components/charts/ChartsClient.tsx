@@ -15,6 +15,7 @@ import {
 import { usePedidoOptions } from "@/lib/useOptions";
 import { buildPedidosQueryParams, type FiltersState } from "@/lib/pedido-query-client";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { useValuesVisibility } from "@/components/ValuesVisibilityProvider";
 
 interface Props {
   visibleFields: string[];
@@ -33,6 +34,7 @@ export default function ChartsClient({ visibleFields }: Props) {
   const canFaturado = visibleSet.has("faturado");
 
   const { options } = usePedidoOptions();
+  const { hidden: valoresHidden } = useValuesVisibility();
   const [clienteIds, setClienteIds] = useState<number[]>([]);
   const [dataFrom, setDataFrom] = useState("");
   const [dataTo, setDataTo] = useState("");
@@ -189,7 +191,7 @@ export default function ChartsClient({ visibleFields }: Props) {
                 Faturado Geral{clienteIds.length > 0 ? "" : " — todas as empresas"}
                 {faturadoFilter !== "TODOS" && (faturadoFilter === "SIM" ? " (faturados)" : " (não faturados)")}
               </h2>
-              <p className="mt-1 text-3xl font-bold text-slate-800">{formatCurrency(chartData.geral)}</p>
+              <p className="mt-1 text-3xl font-bold text-slate-800">{formatCurrency(chartData.geral, valoresHidden)}</p>
               {effectiveDateField === "dataFaturamento" && (
                 <p className="mt-1 text-xs text-amber-600">
                   Filtrando por Data de Faturamento — este valor não soma com "Não faturados", que usa a Data do
@@ -208,9 +210,9 @@ export default function ChartsClient({ visibleFields }: Props) {
                 <ResponsiveContainer width="100%" height={Math.max(260, chartData.porCliente.length * 32)}>
                   <BarChart data={chartData.porCliente} layout="vertical" margin={{ left: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} fontSize={11} />
+                    <XAxis type="number" tickFormatter={(v) => formatCurrency(v, valoresHidden)} fontSize={11} />
                     <YAxis type="category" dataKey="cliente" width={120} fontSize={12} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v, valoresHidden)} />
                     <Bar dataKey="total" fill={BAR_COLOR} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -228,8 +230,11 @@ export default function ChartsClient({ visibleFields }: Props) {
                   <LineChart data={chartData.porData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="data" tickFormatter={(v) => formatDate(v)} fontSize={11} />
-                    <YAxis tickFormatter={(v) => formatCurrency(v)} fontSize={11} width={90} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} labelFormatter={(v) => formatDate(v as string)} />
+                    <YAxis tickFormatter={(v) => formatCurrency(v, valoresHidden)} fontSize={11} width={90} />
+                    <Tooltip
+                      formatter={(v: number) => formatCurrency(v, valoresHidden)}
+                      labelFormatter={(v) => formatDate(v as string)}
+                    />
                     <Line type="monotone" dataKey="total" stroke={BAR_COLOR} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>

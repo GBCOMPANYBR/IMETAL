@@ -9,6 +9,7 @@ import ColumnFilter from "@/components/pedidos/ColumnFilter";
 import PedidoFormModal, { type PedidoRecord } from "@/components/pedidos/PedidoFormModal";
 import AttachmentsModal from "@/components/pedidos/AttachmentsModal";
 import BulkEditModal from "@/components/pedidos/BulkEditModal";
+import { useValuesVisibility } from "@/components/ValuesVisibilityProvider";
 
 const ID_FIELD: FieldDef = { key: "id", label: "ID", type: "number", formEditable: false };
 
@@ -62,6 +63,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
   const visibleSet = useMemo(() => new Set(visibleFields), [visibleFields]);
   const columns = useMemo(() => PEDIDO_FIELDS.filter((f) => visibleSet.has(f.key)), [visibleSet]);
   const { options } = usePedidoOptions();
+  const { hidden: valoresHidden } = useValuesVisibility();
 
   const [filters, setFilters] = useState<FiltersState>({});
   const [quickSearchInput, setQuickSearchInput] = useState("");
@@ -200,9 +202,9 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
       case "qtd":
         return String(pedido.qtd ?? "");
       case "valorUnitario":
-        return formatCurrency(pedido.valorUnitario);
+        return formatCurrency(pedido.valorUnitario, valoresHidden);
       case "valorTotal":
-        return formatCurrency((pedido as unknown as { valorTotal?: number }).valorTotal);
+        return formatCurrency((pedido as unknown as { valorTotal?: number }).valorTotal, valoresHidden);
       case "anexos":
         return String(pedido.anexosCount ?? 0);
       default:
@@ -231,9 +233,13 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
       case "qtd":
         return pedido.qtd ?? "—";
       case "valorUnitario":
-        return formatCurrency(pedido.valorUnitario);
+        return formatCurrency(pedido.valorUnitario, valoresHidden);
       case "valorTotal":
-        return <span className="font-semibold text-slate-700">{formatCurrency((pedido as unknown as { valorTotal?: number }).valorTotal)}</span>;
+        return (
+          <span className="font-semibold text-slate-700">
+            {formatCurrency((pedido as unknown as { valorTotal?: number }).valorTotal, valoresHidden)}
+          </span>
+        );
       case "anexos":
         return (
           <button
@@ -264,7 +270,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
         />
         {isAdmin && !loading && (
           <span className="text-sm font-medium text-slate-600">
-            Total exibido: <span className="font-semibold text-slate-800">{formatCurrency(displayedTotal)}</span>
+            Total exibido: <span className="font-semibold text-slate-800">{formatCurrency(displayedTotal, valoresHidden)}</span>
           </span>
         )}
         {filtersActive && (

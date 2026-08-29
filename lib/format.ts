@@ -1,4 +1,9 @@
-export function formatCurrency(value: number | null | undefined): string {
+// Fixed placeholder (not tied to the real string length) so masking a value never leaks
+// information about its magnitude — every hidden amount renders identically.
+const HIDDEN_CURRENCY_PLACEHOLDER = "R$ ••••••";
+
+export function formatCurrency(value: number | null | undefined, hidden = false): string {
+  if (hidden) return HIDDEN_CURRENCY_PLACEHOLDER;
   if (value === null || value === undefined) return "—";
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
