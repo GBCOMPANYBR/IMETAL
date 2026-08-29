@@ -69,7 +69,7 @@ export default function TopNav({ name, role, isAdmin, canViewGraficos, canSeeVal
               title={hidden ? "Mostrar valores" : "Ocultar valores"}
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
             >
-              {hidden ? "🙈 Valores ocultos" : "👁 Valores visíveis"}
+              {hidden ? "👁 Valores ocultos" : "👁 Valores visíveis"}
             </button>
           )}
           <div className="text-right leading-tight">
