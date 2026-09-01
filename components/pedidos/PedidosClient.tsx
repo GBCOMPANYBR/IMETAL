@@ -503,6 +503,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
         <BulkEditModal
           pedidoIds={Array.from(selectedIds)}
           visibleFields={visibleSet}
+          faturadoOptions={options.faturado}
           onClose={() => setShowBulkEdit(false)}
           onDone={load}
         />

@@ -30,18 +30,26 @@ export function findDisallowedKeys(bodyKeys: string[], visibleFields: Set<string
   });
 }
 
+// IMPORTANT: the transform must pass `undefined` straight through instead of collapsing it to
+// `null`. Zod runs .transform() even when the key is entirely absent from the input (that's a
+// valid value for an .optional() field) — so `(v) => v ?? null` turns "this key wasn't in the
+// request body at all" into "clear this field", silently wiping it. That's exactly the bug that
+// caused a bulk-edit PATCH (which only ever sends dataFaturamento/nf/pdv, see BulkEditModal) to
+// null out pedidoCompra/data/codigo/descricao/ncm/pagamento/observacao on every pedido touched,
+// even though the request never mentioned those fields. The route layer's `data.x !== undefined`
+// guards only work if "absent" and "explicitly cleared" actually produce different values here.
 const optionalTrimmedString = z
   .string()
   .trim()
   .optional()
   .nullable()
-  .transform((v) => (v === "" ? null : v ?? null));
+  .transform((v) => (v === undefined ? undefined : v === "" ? null : v));
 
 const optionalDate = z
   .string()
   .optional()
   .nullable()
-  .transform((v) => (v ? new Date(v) : null));
+  .transform((v) => (v === undefined ? undefined : v ? new Date(v) : null));
 
 export const pedidoCreateSchema = z.object({
   statusId: z.number().int(),

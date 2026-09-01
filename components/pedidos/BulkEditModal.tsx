@@ -3,17 +3,24 @@
 import { useState } from "react";
 import Modal from "@/components/Modal";
 
+interface FaturadoOption {
+  id: number;
+  label: string;
+}
+
 interface Props {
   pedidoIds: number[];
   visibleFields: Set<string>;
+  faturadoOptions: FaturadoOption[];
   onClose: () => void;
   onDone: () => void;
 }
 
-export default function BulkEditModal({ pedidoIds, visibleFields, onClose, onDone }: Props) {
+export default function BulkEditModal({ pedidoIds, visibleFields, faturadoOptions, onClose, onDone }: Props) {
   const [dataFaturamento, setDataFaturamento] = useState("");
   const [nf, setNf] = useState("");
   const [pdv, setPdv] = useState("");
+  const [faturadoId, setFaturadoId] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ ok: number; failed: number } | null>(null);
 
@@ -23,6 +30,7 @@ export default function BulkEditModal({ pedidoIds, visibleFields, onClose, onDon
     if (dataFaturamento) payload.dataFaturamento = dataFaturamento;
     if (nf.trim()) payload.nf = nf.trim();
     if (pdv.trim()) payload.pdv = pdv.trim();
+    if (faturadoId) payload.faturadoId = Number(faturadoId);
 
     if (Object.keys(payload).length === 0) {
       onClose();
@@ -81,6 +89,19 @@ export default function BulkEditModal({ pedidoIds, visibleFields, onClose, onDon
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600">PDV</label>
               <input type="text" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={pdv} onChange={(e) => setPdv(e.target.value)} />
+            </div>
+          )}
+          {visibleFields.has("faturado") && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600">Faturado</label>
+              <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={faturadoId} onChange={(e) => setFaturadoId(e.target.value)}>
+                <option value="">Não alterar</option>
+                {faturadoOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
           <div className="flex justify-end gap-2">
