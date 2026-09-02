@@ -9,7 +9,6 @@ export const PEDIDO_INCLUDE = {
   tipo: true,
   faturado: true,
   updatedBy: { select: { name: true } },
-  _count: { select: { attachments: true } },
 } satisfies Prisma.PedidoInclude;
 
 export type PedidoWithRelations = Prisma.PedidoGetPayload<{ include: typeof PEDIDO_INCLUDE }>;
@@ -18,8 +17,12 @@ export type PedidoWithRelations = Prisma.PedidoGetPayload<{ include: typeof PEDI
  * Converts a Pedido row into a plain JSON-safe object that only contains the
  * fields the given user is allowed to view. Fields the user cannot view are
  * simply absent from the payload — the client never receives that data.
+ *
+ * `anexosCount` is passed in rather than read off the Pedido relation because attachments are
+ * shared across every Pedido with the same Código (see lib/attachment-group.ts) — it isn't a
+ * simple per-row count anymore.
  */
-export function serializePedido(pedido: PedidoWithRelations, user: AuthedUser) {
+export function serializePedido(pedido: PedidoWithRelations, user: AuthedUser, anexosCount: number) {
   const can = (key: string) => user.visibleFields.has(key);
   const editable = canEditPedidoWithStatus(user, pedido.status.editable);
 
@@ -58,7 +61,7 @@ export function serializePedido(pedido: PedidoWithRelations, user: AuthedUser) {
   if (can("dataFaturamento")) out.dataFaturamento = pedido.dataFaturamento;
   if (can("nf")) out.nf = pedido.nf;
   if (can("pdv")) out.pdv = pedido.pdv;
-  if (can("anexos")) out.anexosCount = pedido._count.attachments;
+  if (can("anexos")) out.anexosCount = anexosCount;
   if (can("editadoPor")) out.editadoPor = pedido.updatedBy?.name ?? null;
 
   return out;

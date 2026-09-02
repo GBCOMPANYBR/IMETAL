@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const { where } = parsePedidoQuery(searchParams, user);
+  const { where } = await parsePedidoQuery(searchParams, user);
 
   const canValorTotal = user.visibleFields.has("valorTotal");
   const dateFieldParam = searchParams.get("dateField");

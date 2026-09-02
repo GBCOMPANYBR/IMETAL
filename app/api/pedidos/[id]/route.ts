@@ -6,6 +6,7 @@ import { findDisallowedKeys, pedidoUpdateSchema } from "@/lib/pedido-payload";
 import { deleteAttachmentFile } from "@/lib/storage";
 import { runWithFkErrorHandling } from "@/lib/prisma-errors";
 import { parsePedidoId } from "@/lib/pedido-filters";
+import { attachmentGroupKey, computeAnexosCounts } from "@/lib/attachment-group";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth();
@@ -21,7 +22,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!pedido || !canAccessCliente(user, pedido.clienteId)) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
-  return NextResponse.json(serializePedido(pedido, user));
+  const anexosCounts = await computeAnexosCounts([pedido]);
+  return NextResponse.json(serializePedido(pedido, user, anexosCounts.get(pedido.id) ?? 0));
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -105,7 +107,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   );
   if (result instanceof NextResponse) return result;
 
-  return NextResponse.json(serializePedido(result, user));
+  const anexosCounts = await computeAnexosCounts([result]);
+  return NextResponse.json(serializePedido(result, user, anexosCounts.get(result.id) ?? 0));
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -118,17 +121,26 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
 
-  const pedido = await prisma.pedido.findUnique({
-    where: { id: pedidoId },
-    include: { attachments: true },
-  });
+  const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId } });
   if (!pedido) {
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
+  const groupKey = attachmentGroupKey(pedido);
 
   await prisma.pedido.delete({ where: { id: pedidoId } });
 
-  await Promise.all(pedido.attachments.map((a) => deleteAttachmentFile(a.storedPath)));
+  // Attachments are shared by Código — only clean them up if no other Pedido still shares this
+  // group (a synthetic "__pedido_<id>" key is unique to this Pedido, so it's always safe to clean).
+  const stillShared =
+    !groupKey.startsWith("__pedido_") &&
+    (await prisma.pedido.count({ where: { codigo: pedido.codigo, clienteId: pedido.clienteId } })) > 0;
+  if (!stillShared) {
+    const orphaned = await prisma.attachment.findMany({ where: { codigo: groupKey } });
+    if (orphaned.length > 0) {
+      await prisma.attachment.deleteMany({ where: { codigo: groupKey } });
+      await Promise.all(orphaned.map((a) => deleteAttachmentFile(a.storedPath)));
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

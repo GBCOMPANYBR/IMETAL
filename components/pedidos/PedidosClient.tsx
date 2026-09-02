@@ -408,7 +408,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
                         <input type="checkbox" checked={selectedIds.has(pedido.id)} onChange={() => toggleSelect(pedido.id)} />
                       </td>
                     )}
-                    <td className="truncate px-3 py-2 text-slate-400" style={{ maxWidth: COLUMN_MAX_WIDTHS.id }}>
+                    <td className="truncate px-3 py-2 text-slate-700" style={{ maxWidth: COLUMN_MAX_WIDTHS.id }}>
                       {pedido.id}
                     </td>
                     {columns.map((f) => (
@@ -492,6 +492,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
       {attachmentsFor && (
         <AttachmentsModal
           pedidoId={attachmentsFor.id}
+          codigo={attachmentsFor.codigo}
           canUpload={isAdmin || attachmentsFor.statusEditable !== false}
           isAdmin={isAdmin}
           onClose={() => setAttachmentsFor(null)}

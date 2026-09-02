@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessCliente, requireAdmin, requireAuth } from "@/lib/permissions";
 import { deleteAttachmentFile, readAttachmentFile } from "@/lib/storage";
 import { parsePedidoId } from "@/lib/pedido-filters";
+import { attachmentGroupKey } from "@/lib/attachment-group";
 
 // Only these types are safe to render inline in the browser. Anything else (in particular
 // text/html and image/svg+xml, which can carry executable script) is forced to download —
@@ -25,11 +26,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (pedidoId === null || attId === null) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }
-  const attachment = await prisma.attachment.findFirst({
-    where: { id: attId, pedidoId },
-    include: { pedido: { select: { clienteId: true } } },
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: pedidoId },
+    select: { id: true, clienteId: true, codigo: true },
   });
-  if (!attachment || !canAccessCliente(user, attachment.pedido.clienteId)) {
+  if (!pedido || !canAccessCliente(user, pedido.clienteId)) {
+    return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
+  }
+  // Shared by Código — the file may have been uploaded through a different sibling Pedido.
+  const attachment = await prisma.attachment.findFirst({
+    where: { id: attId, codigo: attachmentGroupKey(pedido) },
+  });
+  if (!attachment) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }
 
@@ -64,7 +72,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
   }
 
-  const attachment = await prisma.attachment.findFirst({ where: { id: attId, pedidoId } });
+  // Shared by Código — deleting it removes it for every Pedido that shares this group.
+  const attachment = await prisma.attachment.findFirst({ where: { id: attId, codigo: attachmentGroupKey(pedido) } });
   if (!attachment) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }

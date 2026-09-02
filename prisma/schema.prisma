@@ -139,8 +139,15 @@ model Pedido {
 
 model Attachment {
   id           Int      @id @default(autoincrement())
-  pedidoId     Int
-  pedido       Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  // Shared key across every Pedido with the same Cliente + Código — see lib/attachment-group.ts.
+  // Falls back to a synthetic "__pedido_<id>" key for Pedidos with no Código, so those
+  // never get grouped together with one another.
+  codigo       String
+  // Which Pedido the file was originally uploaded through — reference/audit only, not the
+  // ownership boundary. Nullable + SET NULL because the attachment must outlive deletion of
+  // any single Pedido that happens to share its codigo group.
+  pedidoId     Int?
+  pedido       Pedido?  @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
   filename     String
   storedPath   String
   mimeType     String
@@ -148,4 +155,6 @@ model Attachment {
   uploadedById Int?
   uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
   uploadedAt   DateTime @default(now())
+
+  @@index([codigo])
 }

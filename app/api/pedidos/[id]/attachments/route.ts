@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessCliente, requireAuth } from "@/lib/permissions";
 import { saveAttachmentFile } from "@/lib/storage";
 import { parsePedidoId } from "@/lib/pedido-filters";
+import { attachmentGroupKey } from "@/lib/attachment-group";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -20,12 +21,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (pedidoId === null) {
     return NextResponse.json([]);
   }
-  const owner = await prisma.pedido.findUnique({ where: { id: pedidoId }, select: { clienteId: true } });
+  const owner = await prisma.pedido.findUnique({ where: { id: pedidoId }, select: { id: true, clienteId: true, codigo: true } });
   if (!owner || !canAccessCliente(user, owner.clienteId)) {
     return NextResponse.json([]);
   }
+  // Shared by Código — every Pedido with the same Código sees the same pool of attachments.
   const attachments = await prisma.attachment.findMany({
-    where: { pedidoId },
+    where: { codigo: attachmentGroupKey(owner) },
     orderBy: { uploadedAt: "desc" },
     select: { id: true, filename: true, mimeType: true, size: true, uploadedAt: true, uploadedBy: { select: { name: true } } },
   });
@@ -68,8 +70,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const bytes = Buffer.from(await file.arrayBuffer());
   const storedPath = await saveAttachmentFile(pedidoId, file.name, bytes);
 
+  // codigo is the shared key — this file becomes visible on every Pedido with the same Código,
+  // not just this one. pedidoId is kept only as a "uploaded via" reference.
   const attachment = await prisma.attachment.create({
     data: {
+      codigo: attachmentGroupKey(pedido),
       pedidoId,
       filename: file.name,
       storedPath,

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessCliente, requireAuth } from "@/lib/permissions";
 import { PEDIDO_INCLUDE, serializePedido } from "@/lib/pedido-serializer";
 import { parsePedidoQuery } from "@/lib/pedido-filters";
+import { computeAnexosCounts } from "@/lib/attachment-group";
 import { findDisallowedKeys, pedidoCreateSchema } from "@/lib/pedido-payload";
 import { runWithFkErrorHandling } from "@/lib/prisma-errors";
 
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
   const { user } = auth;
 
   const { searchParams } = new URL(req.url);
-  const { where, orderBy, hasFilters: hasFiltersFromQuery, page } = parsePedidoQuery(searchParams, user);
+  const { where, orderBy, hasFilters: hasFiltersFromQuery, page } = await parsePedidoQuery(searchParams, user);
   // Exporting always returns the full matching set, ignoring pagination — even with no filters applied.
   const isExport = searchParams.get("export") === "1";
   const hasFilters = hasFiltersFromQuery || isExport;
@@ -34,8 +35,10 @@ export async function GET(req: Request) {
     take,
   });
 
+  const anexosCounts = await computeAnexosCounts(pedidos);
+
   return NextResponse.json({
-    items: pedidos.map((p) => serializePedido(p, user)),
+    items: pedidos.map((p) => serializePedido(p, user, anexosCounts.get(p.id) ?? 0)),
     total,
     page: hasFilters ? 1 : page,
     pageSize: hasFilters ? total : PAGE_SIZE,
@@ -126,5 +129,8 @@ export async function POST(req: Request) {
   );
   if (result instanceof NextResponse) return result;
 
-  return NextResponse.json(serializePedido(result, user), { status: 201 });
+  // Not necessarily 0 — a freshly created Pedido can share a Código with existing ones that
+  // already have attachments, and should immediately see them too.
+  const anexosCounts = await computeAnexosCounts([result]);
+  return NextResponse.json(serializePedido(result, user, anexosCounts.get(result.id) ?? 0), { status: 201 });
 }

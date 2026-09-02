@@ -15,13 +15,14 @@ interface Attachment {
 
 interface Props {
   pedidoId: number;
+  codigo?: string | null;
   canUpload: boolean;
   isAdmin: boolean;
   onClose: () => void;
   onChanged?: () => void;
 }
 
-export default function AttachmentsModal({ pedidoId, canUpload, isAdmin, onClose, onChanged }: Props) {
+export default function AttachmentsModal({ pedidoId, codigo, canUpload, isAdmin, onClose, onChanged }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -74,6 +75,11 @@ export default function AttachmentsModal({ pedidoId, canUpload, isAdmin, onClose
 
   return (
     <Modal title="Anexos do pedido" onClose={onClose} widthClassName="max-w-lg">
+      {codigo?.trim() && (
+        <p className="mb-3 text-xs text-slate-400">
+          Compartilhado com todo pedido do mesmo Cliente com Código <span className="font-medium text-slate-500">{codigo}</span>.
+        </p>
+      )}
       {loading ? (
         <p className="py-6 text-center text-sm text-slate-400">Carregando...</p>
       ) : attachments.length === 0 ? (

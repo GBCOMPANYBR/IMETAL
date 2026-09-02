@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { AuthedUser } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 const FK_FIELDS: Record<string, string> = {
   status: "statusId",
@@ -63,7 +64,24 @@ function parseSearchedNumber(q: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function parsePedidoQuery(searchParams: URLSearchParams, user: AuthedUser): ParsedPedidoQuery {
+/** Translates the set of Attachment group keys (see lib/attachment-group.ts) that currently have
+ * at least one file into an OR'd list of Pedido where-conditions matching those groups. */
+async function pedidoWhereForGroupsWithAttachments(): Promise<Prisma.PedidoWhereInput[]> {
+  const groups = await prisma.attachment.findMany({ select: { codigo: true }, distinct: ["codigo"] });
+  const or: Prisma.PedidoWhereInput[] = [];
+  for (const { codigo: key } of groups) {
+    const clienteCodigo = /^(\d+)::([\s\S]*)$/.exec(key);
+    if (clienteCodigo) {
+      or.push({ clienteId: Number(clienteCodigo[1]), codigo: clienteCodigo[2] });
+      continue;
+    }
+    const soloPedido = /^__pedido_(\d+)$/.exec(key);
+    if (soloPedido) or.push({ id: Number(soloPedido[1]) });
+  }
+  return or;
+}
+
+export async function parsePedidoQuery(searchParams: URLSearchParams, user: AuthedUser): Promise<ParsedPedidoQuery> {
   const visibleFields = user.visibleFields;
   const and: Prisma.PedidoWhereInput[] = [];
   let hasFilters = false;
@@ -157,11 +175,17 @@ export function parsePedidoQuery(searchParams: URLSearchParams, user: AuthedUser
 
   if (visibleFields.has("anexos")) {
     const raw = searchParams.get("f_anexos");
-    if (raw === "1") {
-      and.push({ attachments: { some: {} } });
-      hasFilters = true;
-    } else if (raw === "0") {
-      and.push({ attachments: { none: {} } });
+    if (raw === "1" || raw === "0") {
+      // Attachments are shared by Cliente+Código (see lib/attachment-group.ts), not owned by a
+      // single Pedido anymore, so "has an attachment" can't be expressed as a relation filter on
+      // pedidoId — resolve the (small) set of groups that have at least one file, then match
+      // Pedidos against those groups directly.
+      const or = await pedidoWhereForGroupsWithAttachments();
+      if (raw === "1") {
+        and.push(or.length > 0 ? { OR: or } : { id: -1 });
+      } else {
+        and.push(or.length > 0 ? { NOT: { OR: or } } : {});
+      }
       hasFilters = true;
     }
   }
