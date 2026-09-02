@@ -190,6 +190,18 @@ export async function parsePedidoQuery(searchParams: URLSearchParams, user: Auth
     }
   }
 
+  if (visibleFields.has("fotos")) {
+    const raw = searchParams.get("f_fotos");
+    // Fotos aren't shared across Pedidos (unlike anexos), so this can stay a plain relation filter.
+    if (raw === "1") {
+      and.push({ fotos: { some: {} } });
+      hasFilters = true;
+    } else if (raw === "0") {
+      and.push({ fotos: { none: {} } });
+      hasFilters = true;
+    }
+  }
+
   const q = searchParams.get("q")?.trim();
   if (q) {
     hasFilters = true;

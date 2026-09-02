@@ -34,6 +34,7 @@ model User {
   pedidosCreated Pedido[]          @relation("PedidoCreatedBy")
   pedidosUpdated Pedido[]          @relation("PedidoUpdatedBy")
   attachments    Attachment[]
+  fotos          Foto[]
 }
 
 model FieldPermission {
@@ -135,6 +136,23 @@ model Pedido {
   updatedAt DateTime @updatedAt
 
   attachments Attachment[]
+  fotos       Foto[]
+}
+
+/// Equipment photos — unlike Attachment, these are NOT shared across Pedidos with the same
+/// Código: each Pedido has its own. Same permission pattern as Attachment: any user can upload,
+/// only ADMIN can delete.
+model Foto {
+  id           Int      @id @default(autoincrement())
+  pedidoId     Int
+  pedido       Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  filename     String
+  storedPath   String
+  mimeType     String
+  size         Int
+  uploadedById Int?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
 }
 
 model Attachment {

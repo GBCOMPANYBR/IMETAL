@@ -37,6 +37,7 @@ const COLUMN_MAX_WIDTHS: Record<string, number> = {
   nf: 90,
   pdv: 90,
   anexos: 90,
+  fotos: 90,
   editadoPor: 150,
 };
 
@@ -49,6 +50,7 @@ function rowTint(color: string | undefined): React.CSSProperties {
 interface PedidoRow extends PedidoRecord {
   canEdit: boolean;
   anexosCount?: number;
+  fotosCount?: number;
 }
 
 interface Props {
@@ -79,6 +81,7 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
 
   const [editing, setEditing] = useState<PedidoRow | "new" | null>(null);
   const [attachmentsFor, setAttachmentsFor] = useState<PedidoRow | null>(null);
+  const [fotosFor, setFotosFor] = useState<PedidoRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -207,6 +210,8 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
         return formatCurrency((pedido as unknown as { valorTotal?: number }).valorTotal, valoresHidden);
       case "anexos":
         return String(pedido.anexosCount ?? 0);
+      case "fotos":
+        return String(pedido.fotosCount ?? 0);
       default:
         return (pedido as unknown as Record<string, string | null | undefined>)[fieldKey] ?? "";
     }
@@ -247,6 +252,15 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
             className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
             📎 {pedido.anexosCount ?? 0}
+          </button>
+        );
+      case "fotos":
+        return (
+          <button
+            onClick={() => setFotosFor(pedido)}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            📷 {pedido.fotosCount ?? 0}
           </button>
         );
       default:
@@ -492,10 +506,22 @@ export default function PedidosClient({ visibleFields, isAdmin, canEdit }: Props
       {attachmentsFor && (
         <AttachmentsModal
           pedidoId={attachmentsFor.id}
+          kind="anexos"
           codigo={attachmentsFor.codigo}
           canUpload={isAdmin || attachmentsFor.statusEditable !== false}
           isAdmin={isAdmin}
           onClose={() => setAttachmentsFor(null)}
+          onChanged={load}
+        />
+      )}
+
+      {fotosFor && (
+        <AttachmentsModal
+          pedidoId={fotosFor.id}
+          kind="fotos"
+          canUpload={isAdmin || fotosFor.statusEditable !== false}
+          isAdmin={isAdmin}
+          onClose={() => setFotosFor(null)}
           onChanged={load}
         />
       )}

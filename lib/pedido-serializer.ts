@@ -9,6 +9,8 @@ export const PEDIDO_INCLUDE = {
   tipo: true,
   faturado: true,
   updatedBy: { select: { name: true } },
+  // Fotos aren't shared across Pedidos like attachments are, so a plain relation count works.
+  _count: { select: { fotos: true } },
 } satisfies Prisma.PedidoInclude;
 
 export type PedidoWithRelations = Prisma.PedidoGetPayload<{ include: typeof PEDIDO_INCLUDE }>;
@@ -62,6 +64,7 @@ export function serializePedido(pedido: PedidoWithRelations, user: AuthedUser, a
   if (can("nf")) out.nf = pedido.nf;
   if (can("pdv")) out.pdv = pedido.pdv;
   if (can("anexos")) out.anexosCount = anexosCount;
+  if (can("fotos")) out.fotosCount = pedido._count.fotos;
   if (can("editadoPor")) out.editadoPor = pedido.updatedBy?.name ?? null;
 
   return out;

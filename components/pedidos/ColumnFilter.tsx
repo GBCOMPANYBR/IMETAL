@@ -78,6 +78,7 @@ export default function ColumnFilter({ field, value, onChange, fkOptions }: Prop
           )}
           {isAttachments && (
             <AttachmentsFilter
+              label={field.label}
               value={value?.type === "boolean" ? value.value : undefined}
               onApply={(v) => {
                 onChange(v === undefined ? undefined : { type: "boolean", value: v });
@@ -209,16 +210,24 @@ function FkFilter({ options, value, onApply }: { options: FkOption[]; value: num
   );
 }
 
-function AttachmentsFilter({ value, onApply }: { value: boolean | undefined; onApply: (v: boolean | undefined) => void }) {
+function AttachmentsFilter({
+  label,
+  value,
+  onApply,
+}: {
+  label: string;
+  value: boolean | undefined;
+  onApply: (v: boolean | undefined) => void;
+}) {
   return (
     <div className="space-y-1">
       <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-        <input type="radio" name="anexos-filter" checked={value === true} onChange={() => onApply(true)} />
-        Com anexo
+        <input type="radio" name={`${label}-filter`} checked={value === true} onChange={() => onApply(true)} />
+        Com {label}
       </label>
       <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-        <input type="radio" name="anexos-filter" checked={value === false} onChange={() => onApply(false)} />
-        Sem anexo
+        <input type="radio" name={`${label}-filter`} checked={value === false} onChange={() => onApply(false)} />
+        Sem {label}
       </label>
       <div className="pt-1">
         <button onClick={() => onApply(undefined)} className="text-xs font-medium text-slate-400 hover:text-slate-600">
